@@ -35,10 +35,13 @@ module esmflds
   integer , public, parameter :: mapnstod       = 6 ! nearest source to destination
   integer , public, parameter :: mapnstod_consd = 7 ! nearest source to destination followed by conservative dst
   integer , public, parameter :: mapnstod_consf = 8 ! nearest source to destination followed by conservative frac
-  integer , public, parameter :: nmappers       = 8
+  integer , public, parameter :: mapfillv_bilnr = 9 ! fill value followed by bilinear
+  integer , public, parameter :: nmappers       = 9
 
   character(len=*) , public, parameter :: mapnames(nmappers) = &
-       (/'bilnr      ','consf      ','consd      ','patch      ','fcopy      ','nstod      ','nstod_consd','nstod_consf'/)
+       (/'bilnr      ', 'consf      ', 'consd      ', &
+         'patch      ', 'fcopy      ', 'nstod      ', &
+         'nstod_consd', 'nstod_consf', 'fillv_bilnr' /)
 
   logical, public :: mapuv_with_cart3d ! rotate u,v to 3d cartesian space, map from src->dest, then rotate back
 

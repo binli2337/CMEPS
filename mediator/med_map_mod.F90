@@ -7,6 +7,7 @@ module med_map_mod
   use esmFlds               , only : mapbilnr, mapconsf, mapconsd, mappatch, mapfcopy
   use esmFlds               , only : mapunset, mapnames, nmappers
   use esmFlds               , only : mapnstod, mapnstod_consd, mapnstod_consf, mapnstod_consd
+  use esmFlds               , only : mapfillv_bilnr
   use esmFlds               , only : ncomps, compatm, compice, compocn, compname
   use esmFlds               , only : mapfcopy, mapconsd, mapconsf, mapnstod
   use esmFlds               , only : mapuv_with_cart3d
@@ -183,8 +184,14 @@ contains
           else if (trim(coupling_mode) == 'hafs') then
              dstMaskValue = ispval_mask
              srcMaskValue = ispval_mask
-             if (n1 == compocn .or. n1 == compice) srcMaskValue = 0
-             if (n2 == compocn .or. n2 == compice) dstMaskValue = 0
+!             if (n1 == compocn .or. n1 == compice) srcMaskValue = 0
+!             if (n2 == compocn .or. n2 == compice) dstMaskValue = 0
+             if (n1 == compatm .and. n2 == compocn) then
+                srcMaskValue = 1
+                dstMaskValue = 0
+             elseif (n1 == compocn .and. n2 == compatm) then
+                srcMaskValue = 0
+             endif
           end if
 
           !--- get single fields from bundles
@@ -251,6 +258,19 @@ contains
                          call ESMF_LogWrite(subname // trim(string) //&
                               ' RH regrid for '//trim(mapname)//' computed on the fly', ESMF_LOGMSG_INFO)
                          if (mapindex == mapbilnr) then
+                            srcTermProcessing_Value = 0
+                            call ESMF_FieldRegridStore(fldsrc, flddst, &
+                                 routehandle=is_local%wrap%RH(n1,n2,mapindex), &
+                                 srcMaskValues=(/srcMaskValue/), &
+                                 dstMaskValues=(/dstMaskValue/), &
+                                 regridmethod=ESMF_REGRIDMETHOD_BILINEAR, &
+                                 polemethod=polemethod, &
+                                 srcTermProcessing=srcTermProcessing_Value, &
+                                 factorList=factorList, &
+                                 ignoreDegenerate=.true., &
+                                 unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+                            if (chkerr(rc,__LINE__,u_FILE_u)) return
+                         else if (mapindex == mapfillv_bilnr) then
                             srcTermProcessing_Value = 0
                             call ESMF_FieldRegridStore(fldsrc, flddst, &
                                  routehandle=is_local%wrap%RH(n1,n2,mapindex), &
@@ -431,8 +451,14 @@ contains
     else if (trim(coupling_mode) == 'hafs') then
        dstMaskValue = ispval_mask
        srcMaskValue = ispval_mask
-       if (n1 == compocn .or. n1 == compice) srcMaskValue = 0
-       if (n2 == compocn .or. n2 == compice) dstMaskValue = 0
+!       if (n1 == compocn .or. n1 == compice) srcMaskValue = 0
+!       if (n2 == compocn .or. n2 == compice) dstMaskValue = 0
+       if (n1 == compatm .and. n2 == compocn) then
+          srcMaskValue = 1
+          dstMaskValue = 0
+       elseif (n1 == compocn .and. n2 == compatm) then
+          srcMaskValue = 0
+       endif
     end if
 
     call FB_getFieldN(FBsrc, 1, fldsrc, rc)
@@ -455,7 +481,18 @@ contains
             routehandle=routehandle(n1,n2,mapindex), &
             ignoreUnmatchedIndices = .true., rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
-    else if (mapindex == mapbilnr) then
+    else if (mapindex == mapfillv_bilnr) then
+       call ESMF_FieldRegridStore(fldsrc, flddst, &
+            routehandle=routehandle(n1,n2,mapindex), &
+            srcMaskValues=(/srcMaskValue/), &
+            dstMaskValues=(/dstMaskValue/), &
+            regridmethod=ESMF_REGRIDMETHOD_BILINEAR, &
+            polemethod=polemethod, &
+            srcTermProcessing=srcTermProcessing_Value, &
+            ignoreDegenerate=.true., &
+            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+    else if (mapindex == mapfillv_bilnr) then
        call ESMF_FieldRegridStore(fldsrc, flddst, &
             routehandle=routehandle(n1,n2,mapindex), &
             srcMaskValues=(/srcMaskValue/), &
@@ -1104,6 +1141,7 @@ contains
     use ESMF , only : ESMF_TERMORDER_SRCSEQ, ESMF_Region_Flag, ESMF_REGION_TOTAL
     use ESMF , only : ESMF_REGION_SELECT
     use ESMF , only : ESMF_RouteHandle
+    use ESMF , only : ESMF_FieldFill, ESMF_KIND_R8
 
     ! input/output variables
     type(ESMF_Field)       , intent(in)    :: srcfield
@@ -1116,6 +1154,7 @@ contains
     ! local variables
     logical :: checkflag = .false.
     character(len=CS) :: lfldname
+    real(ESMF_KIND_R8), parameter  :: fillValue = 9.99e20_ESMF_KIND_R8
     character(len=*), parameter    :: subname='(module_MED_Map:med_map_Field_Regrid)'
     !---------------------------------------------------
 
@@ -1159,6 +1198,12 @@ contains
           call Field_diagnose(dstfield, lfldname, " --> after consf: ", rc=rc)
           if (chkerr(rc,__LINE__,u_FILE_u)) return
        end if
+    else if (mapindex == mapfillv_bilnr) then
+       call ESMF_FieldFill(dstfield, dataFillScheme="const", const1=fillValue, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       call ESMF_FieldRegrid(srcfield, dstfield, routehandle=RouteHandles(mapfillv_bilnr), &
+            termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=checkflag, zeroregion=ESMF_REGION_SELECT, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
     else
        call ESMF_FieldRegrid(srcfield, dstfield, routehandle=RouteHandles(mapindex), &
             termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=checkflag, zeroregion=ESMF_REGION_TOTAL, rc=rc)
