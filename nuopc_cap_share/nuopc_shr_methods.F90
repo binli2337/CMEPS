@@ -83,12 +83,14 @@ contains
 
     ! local variables
     integer :: ierr
+#ifdef CESMCOUPLED
     integer, external :: GPTLprint_memusage
     !-----------------------------------------------------------------------
 
     if ((mastertask .and. memdebug_level > level) .or. memdebug_level > level+1) then
        ierr = GPTLprint_memusage(string)
     endif
+#endif
 
   end subroutine memcheck
 
