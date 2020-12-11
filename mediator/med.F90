@@ -4,43 +4,45 @@ module MED
   ! Mediator Component.
   !-----------------------------------------------------------------------------
 
-  use ESMF                   , only : ESMF_VMLogMemInfo
-  use med_kind_mod           , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
-  use med_constants_mod      , only : dbug_flag          => med_constants_dbug_flag
-  use med_constants_mod      , only : spval_init         => med_constants_spval_init
-  use med_constants_mod      , only : spval              => med_constants_spval
-  use med_constants_mod      , only : czero              => med_constants_czero
-  use med_constants_mod      , only : ispval_mask        => med_constants_ispval_mask
-  use med_utils_mod          , only : chkerr             => med_utils_ChkErr
-  use med_methods_mod        , only : Field_GeomPrint    => med_methods_Field_GeomPrint
-  use med_methods_mod        , only : State_GeomPrint    => med_methods_State_GeomPrint
-  use med_methods_mod        , only : State_GeomWrite    => med_methods_State_GeomWrite
-  use med_methods_mod        , only : State_reset        => med_methods_State_reset
-  use med_methods_mod        , only : State_getNumFields => med_methods_State_getNumFields
-  use med_methods_mod        , only : State_GetScalar    => med_methods_State_GetScalar
-  use med_methods_mod        , only : FB_Init            => med_methods_FB_init
-  use med_methods_mod        , only : FB_Init_pointer    => med_methods_FB_Init_pointer
-  use med_methods_mod        , only : FB_Reset           => med_methods_FB_Reset
-  use med_methods_mod        , only : FB_Copy            => med_methods_FB_Copy
-  use med_methods_mod        , only : FB_FldChk          => med_methods_FB_FldChk
-  use med_methods_mod        , only : FB_diagnose        => med_methods_FB_diagnose
-  use med_methods_mod        , only : FB_getFieldN       => med_methods_FB_getFieldN
-  use med_methods_mod        , only : clock_timeprint    => med_methods_clock_timeprint
-  use med_time_mod           , only : alarmInit          => med_time_alarmInit
-  use med_utils_mod          , only : memcheck           => med_memcheck
-  use med_internalstate_mod  , only : InternalState
-  use med_internalstate_mod  , only : med_coupling_allowed, logunit, mastertask
-  use med_phases_profile_mod , only : med_phases_profile_finalize
-  use esmFlds                , only : ncomps, compname
-  use esmFlds                , only : fldListFr, fldListTo, med_fldList_Realize
-  use esmFlds                , only : ncomps, compname, ncomps, compmed, compatm, compocn
-  use esmFlds                , only : compice, complnd, comprof, compwav, compglc, compname
-  use esmFlds                , only : fldListMed_ocnalb, fldListMed_aoflux
-  use esmFlds                , only : med_fldList_GetNumFlds
-  use esmFlds                , only : med_fldList_GetFldNames
-  use esmFlds                , only : med_fldList_Document_Mapping
-  use esmFlds                , only : med_fldList_Document_Merging
+  use ESMF                     , only : ESMF_VMLogMemInfo
+  use med_kind_mod             , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
+  use med_constants_mod        , only : dbug_flag          => med_constants_dbug_flag
+  use med_constants_mod        , only : spval_init         => med_constants_spval_init
+  use med_constants_mod        , only : spval              => med_constants_spval
+  use med_constants_mod        , only : czero              => med_constants_czero
+  use med_constants_mod        , only : ispval_mask        => med_constants_ispval_mask
+  use med_utils_mod            , only : chkerr             => med_utils_ChkErr
+  use med_methods_mod          , only : Field_GeomPrint    => med_methods_Field_GeomPrint
+  use med_methods_mod          , only : State_GeomPrint    => med_methods_State_GeomPrint
+  use med_methods_mod          , only : State_GeomWrite    => med_methods_State_GeomWrite
+  use med_methods_mod          , only : State_reset        => med_methods_State_reset
+  use med_methods_mod          , only : State_getNumFields => med_methods_State_getNumFields
+  use med_methods_mod          , only : State_GetScalar    => med_methods_State_GetScalar
+  use med_methods_mod          , only : FB_Init            => med_methods_FB_init
+  use med_methods_mod          , only : FB_Init_pointer    => med_methods_FB_Init_pointer
+  use med_methods_mod          , only : FB_Reset           => med_methods_FB_Reset
+  use med_methods_mod          , only : FB_Copy            => med_methods_FB_Copy
+  use med_methods_mod          , only : FB_FldChk          => med_methods_FB_FldChk
+  use med_methods_mod          , only : FB_diagnose        => med_methods_FB_diagnose
+  use med_methods_mod          , only : FB_getFieldN       => med_methods_FB_getFieldN
+  use med_methods_mod          , only : clock_timeprint    => med_methods_clock_timeprint
+  use med_time_mod             , only : alarmInit          => med_time_alarmInit
+  use med_utils_mod            , only : memcheck           => med_memcheck
+  use med_internalstate_mod    , only : InternalState
+  use med_internalstate_mod    , only : med_coupling_allowed, logunit, mastertask
+  use med_phases_profile_mod   , only : med_phases_profile_finalize
+  use esmFlds                  , only : ncomps, compname
+  use esmFlds                  , only : fldListFr, fldListTo, med_fldList_Realize
+  use esmFlds                  , only : ncomps, compname, ncomps, compmed, compatm, compocn
+  use esmFlds                  , only : compice, complnd, comprof, compwav, compglc, compname
+  use esmFlds                  , only : fldListMed_ocnalb, fldListMed_aoflux
+  use esmFlds                  , only : med_fldList_GetNumFlds
+  use esmFlds                  , only : med_fldList_GetFldNames
+  use esmFlds                  , only : med_fldList_Document_Mapping
+  use esmFlds                  , only : med_fldList_Document_Merging
   use esmFlds                  , only : coupling_mode
+  use esmFlds                  , only : med_name, atm_name, lnd_name, ocn_name
+  use esmFlds                  , only : ice_name, rof_name, wav_name, glc_name
   use esmFldsExchange_nems_mod , only : esmFldsExchange_nems
   use esmFldsExchange_cesm_mod , only : esmFldsExchange_cesm
   use esmFldsExchange_hafs_mod , only : esmFldsExchange_hafs
@@ -672,42 +674,56 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'satm') atm_present = "true"
+       atm_name = trim(cvalue)
     end if
+
     call NUOPC_CompAttributeGet(gcomp, name='LND_model', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'slnd') lnd_present = "true"
+       lnd_name = trim(cvalue)
     end if
+
     call NUOPC_CompAttributeGet(gcomp, name='OCN_model', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'socn') ocn_present = "true"
+       ocn_name = trim(cvalue)
     end if
+
     call NUOPC_CompAttributeGet(gcomp, name='ICE_model', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'sice') ice_present = "true"
+       ice_name = trim(cvalue)
     end if
+
     call NUOPC_CompAttributeGet(gcomp, name='ROF_model', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'srof') rof_present = "true"
+       rof_name = trim(cvalue)
     end if
+
     call NUOPC_CompAttributeGet(gcomp, name='WAV_model', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'swav') wav_present = "true"
+       wav_name = trim(cvalue)
     end if
+
     call NUOPC_CompAttributeGet(gcomp, name='GLC_model', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'sglc') glc_present = "true"
+       glc_name = trim(cvalue)
     end if
 
     call NUOPC_CompAttributeGet(gcomp, name='mediator_present', value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        med_present = trim(cvalue)
+       med_name = trim(cvalue)
     end if
 
     call NUOPC_CompAttributeSet(gcomp, name="atm_present", value=atm_present, rc=rc)
@@ -729,14 +745,14 @@ contains
 
     if (mastertask) then
        write(logunit,*)
-       write(logunit,*) "atm_present="//trim(atm_present)
-       write(logunit,*) "lnd_present="//trim(lnd_present)
-       write(logunit,*) "ocn_present="//trim(ocn_present)
-       write(logunit,*) "ice_present="//trim(ice_present)
-       write(logunit,*) "rof_present="//trim(rof_present)
-       write(logunit,*) "wav_present="//trim(wav_present)
-       write(logunit,*) "glc_present="//trim(glc_present)
-       write(logunit,*) "med_present="//trim(med_present)
+       write(logunit,*) "atm_present = "//trim(atm_present)//" - atm_name = "//trim(atm_name)
+       write(logunit,*) "lnd_present = "//trim(lnd_present)//" - lnd_name = "//trim(lnd_name)
+       write(logunit,*) "ocn_present = "//trim(ocn_present)//" - ocn_name = "//trim(ocn_name)
+       write(logunit,*) "ice_present = "//trim(ice_present)//" - ice_name = "//trim(ice_name)
+       write(logunit,*) "rof_present = "//trim(rof_present)//" - rof_name = "//trim(rof_name)
+       write(logunit,*) "wav_present = "//trim(wav_present)//" - wav_name = "//trim(wav_name)
+       write(logunit,*) "glc_present = "//trim(glc_present)//" - glc_name = "//trim(glc_name)
+       write(logunit,*) "med_present = "//trim(med_present)//" - med_name = "//trim(med_name)
        write(logunit,*)
     end if
 

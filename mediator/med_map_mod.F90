@@ -14,6 +14,7 @@ module med_map_mod
   use esmFlds               , only : med_fldList_entry_type
   use esmFlds               , only : fldListFr, fldListTo
   use esmFlds               , only : coupling_mode
+  use esmFlds               , only : atm_name 
   use med_internalstate_mod , only : InternalState
   use med_internalstate_mod , only : logunit, mastertask
   use med_constants_mod     , only : ispval_mask       => med_constants_ispval_mask
@@ -184,10 +185,10 @@ contains
           else if (trim(coupling_mode) == 'hafs') then
              dstMaskValue = ispval_mask
              srcMaskValue = ispval_mask
-!             if (n1 == compocn .or. n1 == compice) srcMaskValue = 0
-!             if (n2 == compocn .or. n2 == compice) dstMaskValue = 0
              if (n1 == compatm .and. n2 == compocn) then
-                srcMaskValue = 1
+                if (trim(atm_name) /= 'datm') then
+                  srcMaskValue = 1
+                end if
                 dstMaskValue = 0
              elseif (n1 == compocn .and. n2 == compatm) then
                 srcMaskValue = 0
