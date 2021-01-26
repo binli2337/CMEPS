@@ -167,7 +167,8 @@ contains
              if (n2 == compocn .or. n2 == compice) dstMaskValue = 0
           else if (coupling_mode(1:4) == 'nems') then
              if (n1 == compatm .and. (n2 == compocn .or. n2 == compice)) then
-                srcMaskValue = 1
+                !srcMaskValue = 1
+                srcMaskValue = 0
                 dstMaskValue = 0
              else if (n2 == compatm .and. (n1 == compocn .or. n1 == compice)) then
                 srcMaskValue = 0
