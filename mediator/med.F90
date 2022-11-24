@@ -41,7 +41,7 @@ module MED
   use med_time_mod             , only : med_time_alarmInit
   use med_internalstate_mod    , only : InternalState, med_internalstate_init, med_internalstate_coupling
   use med_internalstate_mod    , only : med_internalstate_defaultmasks, logunit, mastertask
-  use med_internalstate_mod    , only : ncomps, compname
+  use med_internalstate_mod    , only : ncomps, compname, compdat
   use med_internalstate_mod    , only : compmed, compatm, compocn, compice, complnd, comprof, compwav, compglc
   use med_internalstate_mod    , only : coupling_mode, aoflux_code, aoflux_ccpp_suite
   use esmFlds                  , only : fldListMed_ocnalb
@@ -51,6 +51,7 @@ module MED
   use esmFldsExchange_nems_mod , only : esmFldsExchange_nems
   use esmFldsExchange_cesm_mod , only : esmFldsExchange_cesm
   use esmFldsExchange_hafs_mod , only : esmFldsExchange_hafs
+  use esmFldsExchange_hafs_mom6_mod , only : esmFldsExchange_hafs_mom6
   use med_phases_profile_mod   , only : med_phases_profile_finalize
 
   implicit none
@@ -97,6 +98,7 @@ contains
     use med_phases_history_mod  , only: med_phases_history_write
     use med_phases_restart_mod  , only: med_phases_restart_write
     use med_phases_prep_atm_mod , only: med_phases_prep_atm
+!    use med_phases_prep_dat_mod , only: med_phases_prep_dat
     use med_phases_prep_ice_mod , only: med_phases_prep_ice
     use med_phases_prep_lnd_mod , only: med_phases_prep_lnd
     use med_phases_prep_wav_mod , only: med_phases_prep_wav_accum
@@ -106,6 +108,7 @@ contains
     use med_phases_prep_ocn_mod , only: med_phases_prep_ocn_accum
     use med_phases_prep_ocn_mod , only: med_phases_prep_ocn_avg
     use med_phases_post_atm_mod , only: med_phases_post_atm
+    use med_phases_post_dat_mod , only: med_phases_post_dat
     use med_phases_post_ice_mod , only: med_phases_post_ice
     use med_phases_post_lnd_mod , only: med_phases_post_lnd
     use med_phases_post_glc_mod , only: med_phases_post_glc
@@ -116,6 +119,7 @@ contains
     use med_phases_aofluxes_mod , only: med_phases_aofluxes_run
     use med_diag_mod            , only: med_phases_diag_accum, med_phases_diag_print
     use med_diag_mod            , only: med_phases_diag_atm
+!    use med_diag_mod            , only: med_phases_diag_dat
     use med_diag_mod            , only: med_phases_diag_lnd
     use med_diag_mod            , only: med_phases_diag_rof
     use med_diag_mod            , only: med_phases_diag_glc
@@ -251,6 +255,23 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_Advance, &
          specPhaseLabel="med_phases_post_atm", specRoutine=med_phases_post_atm, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    !------------------
+    ! post routines for dat
+    !------------------
+!    call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+!         phaseLabelList=(/"med_phases_prep_dat"/), userRoutine=mediator_routine_Run, rc=rc)
+!    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+!    call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_Advance, &
+!         specPhaseLabel="med_phases_prep_dat", specRoutine=med_phases_prep_dat, rc=rc)
+!    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+         phaseLabelList=(/"med_phases_post_dat"/), userRoutine=mediator_routine_Run, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_Advance, &
+         specPhaseLabel="med_phases_post_dat", specRoutine=med_phases_post_dat, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------------------
@@ -423,7 +444,6 @@ contains
     !------------------
     ! phase routines for budget diagnostics
     !------------------
-
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
          phaseLabelList=(/"med_phases_diag_atm"/), userRoutine=mediator_routine_Run, rc=rc)
     call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_Advance, &
@@ -432,6 +452,15 @@ contains
     call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_TimestampExport, &
          specPhaselabel="med_phases_diag_atm", specRoutine=NUOPC_NoOp, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+!    call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+!         phaseLabelList=(/"med_phases_diag_dat"/), userRoutine=mediator_routine_Run, rc=rc)
+!    call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_Advance, &
+!         specPhaselabel="med_phases_diag_dat", specRoutine=med_phases_diag_dat, rc=rc)
+!    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+!    call NUOPC_CompSpecialize(gcomp, specLabel=mediator_label_TimestampExport, &
+!         specPhaselabel="med_phases_diag_dat", specRoutine=NUOPC_NoOp, rc=rc)
+!    if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
          phaseLabelList=(/"med_phases_diag_lnd"/), userRoutine=mediator_routine_Run, rc=rc)
@@ -717,6 +746,12 @@ contains
          nestedState=is_local%wrap%NStateImp(compatm), rc=rc)
     call NUOPC_AddNamespace(exportState, namespace="ATM", nestedStateName="AtmExp", &
          nestedState=is_local%wrap%NStateExp(compatm), rc=rc)
+!BL
+    call NUOPC_AddNamespace(importState, namespace="DAT", nestedStateName="DatImp", &
+         nestedState=is_local%wrap%NStateImp(compdat), rc=rc)
+    call NUOPC_AddNamespace(exportState, namespace="DAT", nestedStateName="DatExp", &
+         nestedState=is_local%wrap%NStateExp(compdat), rc=rc)
+!BL
 
     call NUOPC_AddNamespace(importState, namespace="OCN", nestedStateName="OcnImp", &
          nestedState=is_local%wrap%NStateImp(compocn), rc=rc)
@@ -816,7 +851,10 @@ contains
     else if (trim(coupling_mode(1:4)) == 'nems') then
        call esmFldsExchange_nems(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    else if (trim(coupling_mode(1:4)) == 'hafs') then
+    else if (trim(coupling_mode) == 'hafs_mom6') then
+       call esmFldsExchange_hafs_mom6(gcomp, phase='advertise', rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else if (trim(coupling_mode) == 'hafs') then
        call esmFldsExchange_hafs(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else
@@ -1552,6 +1590,7 @@ contains
     use med_phases_prep_glc_mod , only : med_phases_prep_glc_init
     use med_phases_prep_atm_mod , only : med_phases_prep_atm
     use med_phases_post_atm_mod , only : med_phases_post_atm
+    use med_phases_post_dat_mod , only : med_phases_post_dat
     use med_phases_post_ice_mod , only : med_phases_post_ice
     use med_phases_post_lnd_mod , only : med_phases_post_lnd
     use med_phases_post_glc_mod , only : med_phases_post_glc
@@ -1781,6 +1820,9 @@ contains
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
       else if (trim(coupling_mode(1:4)) == 'nems') then
        call esmFldsExchange_nems(gcomp, phase='initialize', rc=rc)
+      else if (trim(coupling_mode) == 'hafs_mom6') then
+         call esmFldsExchange_hafs_mom6(gcomp, phase='initialize', rc=rc)
+         if (ChkErr(rc,__LINE__,u_FILE_u)) return
       else if (trim(coupling_mode) == 'hafs') then
          call esmFldsExchange_hafs(gcomp, phase='initialize', rc=rc)
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -1918,8 +1960,10 @@ contains
     !----------------------------------------------------------
     ! Initialize ocean albedos (this is needed for cesm and hafs)
     !----------------------------------------------------------
-
-    if (trim(coupling_mode(1:5)) /= 'nems_') then
+!BL
+    if (trim(coupling_mode(1:5)) /= 'nems_' .or. trim(coupling_mode(1:9)) /= &
+          'hafs_mom6') then
+!BL
        if (is_local%wrap%comp_present(compocn) .or. is_local%wrap%comp_present(compatm)) then
           call med_phases_ocnalb_run(gcomp, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -2123,6 +2167,11 @@ contains
        if (is_local%wrap%comp_present(compatm)) then
           ! map atm->ocn, atm->ice, atm->lnd, atm->wav
           call med_phases_post_atm(gcomp, rc)
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       end if
+       if (is_local%wrap%comp_present(compdat)) then
+          ! map atm->ocn, atm->ice, atm->lnd, atm->wav
+          call med_phases_post_dat(gcomp, rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        end if
        if (is_local%wrap%comp_present(compice)) then
