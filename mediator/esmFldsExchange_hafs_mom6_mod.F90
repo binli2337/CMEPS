@@ -137,7 +137,8 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
-          call addmap(fldListFr(compocn)%flds, 'So_t', compatm, maptype, 'one', 'unset')
+          !call addmap(fldListFr(compocn)%flds, 'So_t', compatm, maptype, 'one', 'unset')
+          call addmap(fldListFr(compocn)%flds, 'So_t', compatm, maptype, 'none', 'unset')
           call addmrg(fldListTo(compatm)%flds, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
        end if
     end if
@@ -209,7 +210,8 @@ contains
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-             call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
+             !call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
+             call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'none', 'unset')
           end if
        end if
     end do
@@ -223,7 +225,8 @@ contains
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc)) then
-             call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
+             !call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
+             call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
           end if
        end if
     end do
@@ -251,8 +254,10 @@ contains
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-             call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
-             call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
+             !call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
+             !call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
+             call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+             call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'none', 'unset')
           end if
        end if
     end do
@@ -280,8 +285,10 @@ contains
              if ( fldchk(is_local%wrap%FBexp(compocn)     , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-                call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
-                call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
+                !call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
+                !call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
+                call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+                call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'none', 'unset')
              end if
           end if
        end do
