@@ -145,6 +145,7 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else if (trim(coupling_mode) == 'nems_frac' .or. &
              trim(coupling_mode) == 'nems_orig' .or. &
+             trim(coupling_mode) == 'hafs_mom6' .or. &
              trim(coupling_mode) == 'nems_frac_aoflux_sbs') then
        call med_merge_auto(&
             is_local%wrap%med_coupling_active(:,compatm), &
