@@ -84,6 +84,19 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
        call t_stopf('MED:'//trim(subname)//' map_dat2ice')
     end if
+    ! map atm->lnd
+    if (is_local%wrap%med_coupling_active(compdat,complnd)) then
+       call t_startf('MED:'//trim(subname)//' map_dat2lnd')
+       call med_map_field_packed( &
+            FBSrc=is_local%wrap%FBImp(compdat,compdat), &
+            FBDst=is_local%wrap%FBImp(compdat,complnd), &
+            FBFracSrc=is_local%wrap%FBFrac(compdat), &
+            field_normOne=is_local%wrap%field_normOne(compdat,complnd,:), &
+            packed_data=is_local%wrap%packed_data(compdat,complnd,:), &
+            routehandles=is_local%wrap%RH(compdat,complnd,:), rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       call t_stopf('MED:'//trim(subname)//' map_dat2lnd')
+    end if
     ! map dat->wav
     if (is_local%wrap%med_coupling_active(compdat,compwav)) then
        call t_startf('MED:'//trim(subname)//' map_dat2wav')

@@ -85,6 +85,7 @@ contains
     use med_constants_mod     , only : czero => med_constants_czero
     use esmFlds               , only : fldListFr
     use med_internalstate_mod , only : mapunset, compname, compocn, compatm
+    use med_internalstate_mod , only : compdat
     use med_internalstate_mod , only : ncomps, nmappers, compname, mapnames, mapfcopy
 
     ! input/output variables
@@ -406,6 +407,21 @@ contains
           dstMaskValue = ispval_mask
        end if
     end if
+!BL
+    if (trim(coupling_mode) == 'hafs_mom6') then
+       if (n1 == compdat .and. n2 == compocn) then
+         dstMaskValue = 0
+       endif
+       if (n1 == compatm .and. n2 == compocn) then
+         srcMaskValue = 1
+         dstMaskValue = 0
+       endif
+       if (n1 == compocn .and. n2 == compatm) then
+         srcMaskValue = 0
+         dstMaskValue = 1
+       endif
+    end if
+!BL
     if (trim(coupling_mode) == 'hafs') then
        if (n1 == compatm .and. n2 == compwav) then
           srcMaskValue = ispval_mask
