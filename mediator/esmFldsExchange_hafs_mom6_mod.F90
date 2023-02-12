@@ -32,6 +32,7 @@ contains
     use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch
     use med_internalstate_mod , only : mapfcopy, mapnstod, mapnstod_consd, mapnstod_consf
     use med_internalstate_mod , only : mapconsf_aofrac, mapfillv_bilnr, mapbilnr_nstod
+    use med_internalstate_mod , only : mapfillv_consf
     use med_internalstate_mod , only : coupling_mode, mapnames
     use esmFlds               , only : med_fldList_type
     use esmFlds               , only : addfld => med_fldList_AddFld
@@ -138,7 +139,7 @@ contains
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
           !call addmap(fldListFr(compocn)%flds, 'So_t', compatm, maptype, 'one', 'unset')
-          call addmap(fldListFr(compocn)%flds, 'So_t', compatm, maptype, 'none', 'unset')
+          call addmap(fldListFr(compocn)%flds, 'So_t', compatm, mapfillv_consf, 'none', 'unset')
           call addmrg(fldListTo(compatm)%flds, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
        end if
     end if

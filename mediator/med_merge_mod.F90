@@ -841,8 +841,7 @@ contains
     logical                    :: FBinfound
     integer                    :: dbrc
     character(len=*),parameter :: subname='(hafs_merge_forcing)'
-    !real(ESMF_KIND_R8), parameter :: fillValue = 9.99e20_ESMF_KIND_R8
-    real(ESMF_KIND_R8), parameter :: fillValue = 9.0e20_ESMF_KIND_R8
+    real(ESMF_KIND_R8), parameter :: fillValue = 9.99e20_ESMF_KIND_R8
     !---------------------------------------------------
 
     if (dbug_flag > 10) then
