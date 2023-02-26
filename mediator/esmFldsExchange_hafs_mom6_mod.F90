@@ -35,10 +35,13 @@ contains
     use med_internalstate_mod , only : mapfillv_consf
     use med_internalstate_mod , only : coupling_mode, mapnames
     use esmFlds               , only : med_fldList_type
-    use esmFlds               , only : addfld => med_fldList_AddFld
-    use esmFlds               , only : addmap => med_fldList_AddMap
-    use esmFlds               , only : addmrg => med_fldList_AddMrg
-    use esmflds               , only : fldListTo, fldListFr, fldListMed_aoflux, fldListMed_ocnalb
+    use esmFlds               , only : addfld_to => med_fldList_addfld_to
+    use esmFlds               , only : addmrg_to => med_fldList_addmrg_to
+    use esmFlds               , only : addfld_from => med_fldList_addfld_from
+    use esmFlds               , only : addmap_from => med_fldList_addmap_from
+    use esmFlds               , only : addfld_aoflux => med_fldList_addfld_aoflux
+    use esmFlds               , only : addmap_aoflux => med_fldList_addmap_aoflux
+
     use med_internalstate_mod , only : InternalState, mastertask, logunit
 
     ! input/output parameters:
@@ -84,8 +87,8 @@ contains
        call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldName", value=cvalue, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
        do n = 1,ncomps
-          call addfld(fldListFr(n)%flds, trim(cvalue))
-          call addfld(fldListTo(n)%flds, trim(cvalue))
+          call addfld_to(n, trim(cvalue))
+          call addfld_from(n, trim(cvalue))
        end do
     end if
 
@@ -95,8 +98,8 @@ contains
 
     ! masks from components
     if (phase == 'advertise') then
-       !if (is_local%wrap%comp_present(compice)) call addfld(fldListFr(compice)%flds, 'Si_imask')
-       if (is_local%wrap%comp_present(compocn)) call addfld(fldListFr(compocn)%flds, 'So_omask')
+       !if (is_local%wrap%comp_present(compice)) call addfld_from(compice, 'Si_imask')
+       if (is_local%wrap%comp_present(compocn)) call addfld_from(compocn, 'So_omask')
 !BL
 !       if (is_local%wrap%comp_present(compocn)) call addfld(fldListTo(compatm)%flds, 'So_ofrac')
 !BL
@@ -115,7 +118,7 @@ contains
     if (phase == 'advertise') then
        ! ofrac used by atm
        if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
-          call addfld(fldListFr(compatm)%flds, 'Sa_ofrac')
+          call addfld_from(compatm, 'Sa_ofrac')
        end if
     end if
 
@@ -132,15 +135,16 @@ contains
     ! to atm: unmerged surface temperatures from ocn
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
-          call addfld(fldListFr(compocn)%flds, 'So_t')
-          call addfld(fldListTo(compatm)%flds, 'So_t')
+          call addfld_from(compocn, 'So_t')
+          call addfld_to(compatm, 'So_t')
        end if
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
           !call addmap(fldListFr(compocn)%flds, 'So_t', compatm, maptype, 'one', 'unset')
-          call addmap(fldListFr(compocn)%flds, 'So_t', compatm, mapfillv_consf, 'none', 'unset')
-          call addmrg(fldListTo(compatm)%flds, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
+          !call addmap_from(compocn, 'So_t', compatm, mapfillv_consf, 'none', 'unset')
+          call addmap_from(compocn, 'So_t', compatm, maptype, 'ofrac', 'unset')
+          call addmrg_to(compatm, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
        end if
     end if
 
@@ -154,14 +158,14 @@ contains
     ! to atm: surface roughness length from wav
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compwav) .and. is_local%wrap%comp_present(compatm)) then
-          call addfld(fldListFr(compwav)%flds, 'Sw_z0')
-          call addfld(fldListTo(compatm)%flds, 'Sw_z0')
+          call addfld_from(compwav, 'Sw_z0')
+          call addfld_to(compatm, 'Sw_z0')
        end if
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'Sw_z0', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compwav,compwav), 'Sw_z0', rc=rc)) then
-          call addmap(fldListFr(compwav)%flds, 'Sw_z0', compatm, maptype, 'one', 'unset')
-          call addmrg(fldListTo(compatm)%flds, 'Sw_z0', mrg_from=compwav, mrg_fld='Sw_z0', mrg_type='copy')
+          call addmap_from(compwav, 'Sw_z0', compatm, maptype, 'one', 'unset')
+          call addmrg_to(compatm, 'Sw_z0', mrg_from=compwav, mrg_fld='Sw_z0', mrg_type='copy')
        end if
     end if
 
@@ -178,16 +182,17 @@ contains
 ! Sa_pslv may be used to compute pressure gradient
 !    if (phase == 'advertise') then
 !       if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn)) then
-!          call addfld(fldListFr(compatm)%flds, 'Sa_pslv')
-!          call addfld(fldListFr(compdat)%flds, 'Sd_pslv')
-!          call addfld(fldListTo(compocn)%flds, 'Sa_pslv')
+!          call addfld_from(compatm, 'Sa_pslv')
+!          call addfld_from(compdat, 'Sd_pslv')
+!          call addfld_to(compocn, 'Sa_pslv')
 !       end if
 !    else
 !       if ( fldchk(is_local%wrap%FBexp(compocn)        , 'Sa_pslv', rc=rc) .and. &
 !            fldchk(is_local%wrap%FBImp(compdat,compdat), 'Sd_pslv', rc=rc) .and. &
 !            fldchk(is_local%wrap%FBImp(compatm,compatm), 'Sa_pslv', rc=rc)) then
-!          call addmap(fldListFr(compdat)%flds, 'Sd_pslv', compocn, maptype_dat, 'one', 'unset')
-!          call addmap(fldListFr(compatm)%flds, 'Sa_pslv', compocn, maptype, 'one', 'unset')
+!          call addmap_from(compdat, 'Sd_pslv', compocn, maptype_dat, 'one', 'unset')
+!          call addmap_from(compatm, 'Sa_pslv', compocn, maptype, 'one', 'unset')
+!          call addmrg_to(compocn, 'Sa_pslv', mrg_from=compatm, mrg_fld='Sa_pslv', mrg_type='copy')
 !       end if
 !    end if
 
@@ -205,14 +210,14 @@ contains
     do n = 1,size(oflds)
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn)) then
-             call addfld(fldListFr(compatm)%flds, trim(aflds(n)))
-             call addfld(fldListTo(compocn)%flds, trim(oflds(n)))
+             call addfld_from(compatm, trim(aflds(n)))
+             call addfld_to(compocn, trim(oflds(n)))
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-             !call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
-             call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'none', 'unset')
+             !call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
+             call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'one', 'unset')
           end if
        end if
     end do
@@ -220,14 +225,14 @@ contains
     do n = 1,size(oflds)
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compdat) .and. is_local%wrap%comp_present(compocn)) then
-             call addfld(fldListFr(compdat)%flds, trim(dflds(n)))
-             call addfld(fldListTo(compocn)%flds, trim(oflds(n)))
+             call addfld_from(compdat, trim(dflds(n)))
+             call addfld_to(compocn, trim(oflds(n)))
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc)) then
-             !call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
-             call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+             !call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+             call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
           end if
        end if
     end do
@@ -243,22 +248,22 @@ contains
     dflds = (/'Faxd_rain', 'Faxd_lwnet', 'Faxd_sen', 'Faxd_lat'/)
     oflds = (/'Foxx_rain', 'Foxx_lwnet', 'Foxx_sen', 'Faxa_evap'/)
     do n = 1,size(oflds)
-!       fldname = trim(oflds(n))
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn) &
              .and. is_local%wrap%comp_present(compdat)) then
-             call addfld(fldListFr(compatm)%flds, trim(aflds(n)))
-             call addfld(fldListFr(compdat)%flds, trim(dflds(n)))
-             call addfld(fldListTo(compocn)%flds, trim(oflds(n)))
+             call addfld_from(compatm, trim(aflds(n)))
+             call addfld_from(compdat, trim(dflds(n)))
+             call addfld_to(compocn, trim(oflds(n)))
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-             !call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
              !call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
-             call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
-             call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'none', 'unset')
+             !call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+             !call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
+             call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
+             call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'one', 'unset')
           end if
        end if
     end do
@@ -278,9 +283,9 @@ contains
           if (phase == 'advertise') then
              if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn) &
              .and. is_local%wrap%comp_present(compdat)) then
-                   call addfld(fldListFr(compatm)%flds, trim(aflds(n)))
-                   call addfld(fldListFr(compdat)%flds, trim(dflds(n)))
-                   call addfld(fldListTo(compocn)%flds, trim(oflds(n)))
+                   call addfld_from(compatm, trim(aflds(n)))
+                   call addfld_from(compdat, trim(dflds(n)))
+                   call addfld_to(compocn, trim(oflds(n)))
              end if
           else
              if ( fldchk(is_local%wrap%FBexp(compocn)     , trim(oflds(n)), rc=rc) .and. &
@@ -288,8 +293,10 @@ contains
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
                 !call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
                 !call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'one', 'unset')
-                call addmap(fldListFr(compdat)%flds, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
-                call addmap(fldListFr(compatm)%flds, trim(aflds(n)), compocn, maptype, 'none', 'unset')
+                !call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+                !call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
+                call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
+                call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'one', 'unset')
              end if
           end if
        end do
@@ -306,14 +313,14 @@ contains
        fldname = trim(flds(n))
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compice) .and. is_local%wrap%comp_present(compocn)) then
-             call addfld(fldListFr(compice)%flds, trim(fldname))
-             call addfld(fldListTo(compocn)%flds, trim(fldname))
+             call addfld_from(compice, trim(fldname))
+             call addfld_from(compocn, trim(fldname))
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(fldname), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compice,compice), trim(fldname), rc=rc)) then
-             call addmap(fldListFr(compice)%flds, trim(fldname), compocn,  mapfcopy, 'unset', 'unset')
-             call addmrg(fldListTo(compocn)%flds, trim(fldname), &
+             call addmap_from(compice, trim(fldname), compocn,  mapfcopy, 'unset', 'unset')
+             call addmrg_to(compocn, trim(fldname), &
                   mrg_from=compice, mrg_fld=trim(fldname), mrg_type='copy_with_weights', mrg_fracname='ifrac')
           end if
        end if
@@ -328,14 +335,14 @@ contains
        fldname = trim(flds(n))
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compwav) .and. is_local%wrap%comp_present(compocn)) then
-             call addfld(fldListFr(compwav)%flds, trim(fldname))
-             call addfld(fldListTo(compocn)%flds, trim(fldname))
+             call addfld_from(compwav, trim(fldname))
+             call addfld_to(compocn, trim(fldname))
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(fldname), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compwav,compwav), trim(fldname), rc=rc)) then
-             call addmap(fldListFr(compwav)%flds, trim(fldname), compocn, mapbilnr_nstod, 'one', 'unset')
-             call addmrg(fldListTo(compocn)%flds, trim(fldname), mrg_from=compwav, mrg_fld=trim(fldname), mrg_type='copy')
+             call addmap_from(compwav, trim(fldname), compocn, mapbilnr_nstod, 'one', 'unset')
+             call addmrg_to(compocn, trim(fldname), mrg_from=compwav, mrg_fld=trim(fldname), mrg_type='copy')
           end if
        end if
     end do
@@ -352,14 +359,14 @@ contains
        fldname = trim(flds(n))
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compwav)) then
-             call addfld(fldListFr(compatm)%flds, trim(fldname))
-             call addfld(fldListTo(compwav)%flds, trim(fldname))
+             call addfld_from(compatm, trim(fldname))
+             call addfld_to(compwav, trim(fldname))
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compwav)        , trim(fldname), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(fldname), rc=rc)) then
-             call addmap(fldListFr(compatm)%flds, trim(fldname), compwav, mapnstod_consf, 'one', 'unset')
-             call addmrg(fldListTo(compwav)%flds, trim(fldname), mrg_from=compatm, mrg_fld=trim(fldname), mrg_type='copy')
+             call addmap_from(compatm, trim(fldname), compwav, mapnstod_consf, 'one', 'unset')
+             call addmrg_to(compwav, trim(fldname), mrg_from=compatm, mrg_fld=trim(fldname), mrg_type='copy')
           end if
        end if
      end do
@@ -394,14 +401,14 @@ contains
         fldname = trim(flds(n))
         if (phase == 'advertise') then
            if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compwav)) then
-              call addfld(fldListFr(compocn)%flds, trim(fldname))
-              call addfld(fldListTo(compwav)%flds, trim(fldname))
+              call addfld_from(compocn, trim(fldname))
+              call addfld_to(compwav, trim(fldname))
            end if
         else
            if ( fldchk(is_local%wrap%FBexp(compwav)        , trim(fldname), rc=rc) .and. &
                 fldchk(is_local%wrap%FBImp(compocn,compocn), trim(fldname), rc=rc)) then
-              call addmap(fldListFr(compocn)%flds, trim(fldname), compwav, mapbilnr_nstod , 'one', 'unset')
-              call addmrg(fldListTo(compwav)%flds, trim(fldname), mrg_from=compocn, mrg_fld=trim(fldname), mrg_type='copy')
+              call addmap_from(compocn, trim(fldname), compwav, mapbilnr_nstod , 'one', 'unset')
+              call addmrg_to(compwav, trim(fldname), mrg_from=compocn, mrg_fld=trim(fldname), mrg_type='copy')
            end if
         end if
      end do
