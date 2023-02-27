@@ -106,7 +106,7 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compice)        , trim(fldname), rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), trim(fldname), rc=rc)) then
-          call addmap(fldListFr(compocn)%flds, 'So_omask', compice,  mapfcopy, 'unset', 'unset')
+          call addmap_from(compocn, 'So_omask', compice,  mapfcopy, 'unset', 'unset')
        end if
     end if
 
