@@ -71,7 +71,7 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
        call t_stopf('MED:'//trim(subname)//' map_dat2ocn')
     end if
-    ! map atm->ice
+    ! map dat->ice
     if (is_local%wrap%med_coupling_active(compdat,compice)) then
        call t_startf('MED:'//trim(subname)//' map_dat2ice')
        call med_map_field_packed( &

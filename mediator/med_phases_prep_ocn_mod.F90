@@ -223,11 +223,9 @@ contains
     if (trim(coupling_mode) == 'cesm') then
        call med_phases_prep_ocn_custom_cesm(gcomp, rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-!BL2022
     else if (trim(coupling_mode(1:9)) == 'hafs_mom6') then
        call med_phases_prep_ocn_custom_hafs_mom6(gcomp, rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-!BL2022
     else if (trim(coupling_mode(1:5)) == 'nems_') then
        call med_phases_prep_ocn_custom_nems(gcomp, rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -792,22 +790,22 @@ contains
             FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_lwnet', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-!BL2022
+!BL
 !       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Sa_pslv',  &
 !            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Sd_pslv', wgtA=wgtp01, &
 !            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Sa_pslv', wgtB=wgtp01, rc=rc)
 !       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-!BL2022
+!BL
        call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_rain',  &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_rain', wgtA=wgtp01, &
             FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_rain', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-!BL2022
+!BL
 !    if (mastertask) then
 !       write(logunit,'(a)') trim(subname)//' customewgt1= '
 !       write(logunit,'(f10.4)')  customwgt1(1),customwgt1(2993)
 !    end if
-!BL2022
+!BL
 
        call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_sen',  &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_sen', wgtA=wgtm01, &
