@@ -87,8 +87,8 @@ contains
        call NUOPC_CompAttributeGet(gcomp, name="ScalarFieldName", value=cvalue, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
        do n = 1,ncomps
-          call addfld_to(n, trim(cvalue))
           call addfld_from(n, trim(cvalue))
+          call addfld_to(n, trim(cvalue))
        end do
     end if
 
@@ -98,10 +98,9 @@ contains
 
     ! masks from components
     if (phase == 'advertise') then
-       !if (is_local%wrap%comp_present(compice)) call addfld_from(compice, 'Si_imask')
        if (is_local%wrap%comp_present(compocn)) call addfld_from(compocn, 'So_omask')
 !BL
-!       if (is_local%wrap%comp_present(compocn)) call addfld_to(compatm, 'So_ofrac')
+!       if (is_local%wrap%comp_present(compocn)) call addfld_to(compatm), 'So_ofrac')
 !BL
     else
        if ( fldchk(is_local%wrap%FBexp(compice)        , trim(fldname), rc=rc) .and. &
@@ -141,8 +140,6 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
-          !call addmap_from(compocn, 'So_t', compatm, maptype, 'ofrac', 'unset')
-          !call addmap_from(compocn, 'So_t', compatm, mapfillv_consf, 'none', 'unset')
           call addmap_from(compocn, 'So_t', compatm, maptype, 'none', 'unset')
           call addmrg_to(compatm, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
        end if
@@ -216,7 +213,6 @@ contains
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-             !call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'one', 'unset')
              call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
           end if
        end if
@@ -231,7 +227,6 @@ contains
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc)) then
-             !call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
              call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
           end if
        end if
@@ -261,8 +256,6 @@ contains
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
              call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
              call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
-             !call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
-             !call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'one', 'unset')
           end if
        end if
     end do
@@ -292,8 +285,6 @@ contains
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
                 call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
                 call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
-                !call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'one', 'unset')
-                !call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'one', 'unset')
              end if
           end if
        end do
