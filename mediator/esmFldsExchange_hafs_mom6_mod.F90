@@ -140,7 +140,7 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
-          call addmap_from(compocn, 'So_t', compatm, maptype, 'none', 'unset')
+          call addmap_from(compocn, 'So_t', compatm, mapfillv_consf, 'none', 'unset')
           call addmrg_to(compatm, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
        end if
     end if
