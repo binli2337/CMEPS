@@ -447,6 +447,10 @@ contains
        endif
     end if
 
+    if (trim(coupling_mode) == 'hafs_mom6') then
+       polemethod = ESMF_POLEMETHOD_NONE ! todo: remove this when ESMF tripolar mapping fix is in place.
+    end if
+
     ! Create route handle
     if (mapindex == mapfcopy) then
        if (mastertask) then
