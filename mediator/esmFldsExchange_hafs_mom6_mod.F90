@@ -27,8 +27,7 @@ contains
     use med_methods_mod       , only : fldchk => med_methods_FB_FldChk
     use med_internalstate_mod , only : InternalState
     use med_internalstate_mod , only : mastertask, logunit
-    use med_internalstate_mod , only : compmed, compatm, compocn, compice, comprof, compwav, ncomps
-    use med_internalstate_mod , only : compdat
+    use med_internalstate_mod , only : compmed, compatm, compdat, compocn, compice, comprof, compwav, ncomps
     use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch
     use med_internalstate_mod , only : mapfcopy, mapnstod, mapnstod_consd, mapnstod_consf
     use med_internalstate_mod , only : mapconsf_aofrac, mapfillv_bilnr, mapbilnr_nstod
@@ -99,9 +98,6 @@ contains
     ! masks from components
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn)) call addfld_from(compocn, 'So_omask')
-!BL
-!       if (is_local%wrap%comp_present(compocn)) call addfld_to(compatm), 'So_ofrac')
-!BL
     else
        if ( fldchk(is_local%wrap%FBexp(compice)        , trim(fldname), rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), trim(fldname), rc=rc)) then
@@ -113,24 +109,6 @@ contains
     ! FIELDS TO ATMOSPHERE (compatm)
     !=====================================================================
 
-    ! to atm: fractions (computed in med_phases_prep_atm)
-    if (phase == 'advertise') then
-       ! ofrac used by atm
-       if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
-          call addfld_from(compatm, 'Sa_ofrac')
-       end if
-    end if
-
-    ! to atm: unmerged from ice
-    ! - zonal surface stress, meridional surface stress
-    ! - surface latent heat flux,
-    ! - surface sensible heat flux
-    ! - surface upward longwave heat flux
-    ! - evaporation water flux from water
-    ! - mean ice volume per unit area
-    ! - mean snow volume per unit area
-    ! - surface temperatures
-
     ! to atm: unmerged surface temperatures from ocn
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
@@ -140,17 +118,10 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
-          call addmap_from(compocn, 'So_t', compatm, mapfillv_consf, 'none', 'unset')
+          call addmap_from(compocn, 'So_t', compatm, maptype, 'none', 'unset')
           call addmrg_to(compatm, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
        end if
     end if
-
-    ! to atm: unmerged from mediator, merge will be done under FV3/CCPP composite step
-    ! - zonal surface stress, meridional surface stress
-    ! - surface latent heat flux,
-    ! - surface sensible heat flux
-    ! - surface upward longwave heat flux
-    ! - evaporation water flux from water, not in the list do we need to send it to atm?
 
     ! to atm: surface roughness length from wav
     if (phase == 'advertise') then
@@ -161,7 +132,7 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'Sw_z0', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compwav,compwav), 'Sw_z0', rc=rc)) then
-          call addmap_from(compwav, 'Sw_z0', compatm, maptype, 'one', 'unset')
+          call addmap_from(compwav, 'Sw_z0', compatm, maptype, 'none', 'unset')
           call addmrg_to(compatm, 'Sw_z0', mrg_from=compwav, mrg_fld='Sw_z0', mrg_type='copy')
        end if
     end if
@@ -187,8 +158,8 @@ contains
 !       if ( fldchk(is_local%wrap%FBexp(compocn)        , 'Sa_pslv', rc=rc) .and. &
 !            fldchk(is_local%wrap%FBImp(compdat,compdat), 'Sd_pslv', rc=rc) .and. &
 !            fldchk(is_local%wrap%FBImp(compatm,compatm), 'Sa_pslv', rc=rc)) then
-!          call addmap_from(compdat, 'Sd_pslv', compocn, maptype_dat, 'one', 'unset')
-!          call addmap_from(compatm, 'Sa_pslv', compocn, maptype, 'one', 'unset')
+!          call addmap_from(compdat, 'Sd_pslv', compocn, maptype_dat, 'none', 'unset')
+!          call addmap_from(compatm, 'Sa_pslv', compocn, maptype, 'none', 'unset')
 !          call addmrg_to(compocn, 'Sa_pslv', mrg_from=compatm, mrg_fld='Sa_pslv', mrg_type='copy')
 !       end if
 !    end if
@@ -235,7 +206,7 @@ contains
     deallocate(aflds)
     deallocate(dflds)
 
-    ! to ocn: rain and snow via auto merge
+    ! to ocn: rain, net longwave, sensible heat and latent heat via auto merge
     allocate(oflds(4))
     allocate(dflds(4))
     allocate(aflds(4))
@@ -252,8 +223,8 @@ contains
           end if
        else
           if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(oflds(n)), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
+             fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
+             fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
              call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
              call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
           end if
@@ -263,86 +234,41 @@ contains
     deallocate(dflds)
     deallocate(aflds)
 
-    if (trim(coupling_mode) == 'hafs_mom6' ) then
-       ! to ocn: merge surface stress (custom merge calculation in med_phases_prep_ocn)
-       allocate(aflds(2))
-       allocate(dflds(2))
-       allocate(oflds(2))
-       aflds = (/'Faxa_taux', 'Faxa_tauy'/)
-       dflds = (/'Faxd_taux', 'Faxd_tauy'/)
-       oflds = (/'Foxx_taux', 'Foxx_tauy'/)
-       do n = 1,size(oflds)
-          if (phase == 'advertise') then
-             if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn) &
-             .and. is_local%wrap%comp_present(compdat)) then
-                   call addfld_from(compatm, trim(aflds(n)))
-                   call addfld_from(compdat, trim(dflds(n)))
-                   call addfld_to(compocn, trim(oflds(n)))
-             end if
-          else
-             if ( fldchk(is_local%wrap%FBexp(compocn)     , trim(oflds(n)), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
-                call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
-                call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
-             end if
-          end if
-       end do
-       deallocate(aflds)
-       deallocate(dflds)
-       deallocate(oflds)
-
-    endif
-
-    ! to ocn: salt flux from ice
-    allocate(flds(3))
-    flds = (/'Fioi_meltw', 'Fioi_melth', 'Fioi_salt '/)
-    do n = 1,size(flds)
-       fldname = trim(flds(n))
+    ! to ocn: merge surface stress (custom merge calculation in med_phases_prep_ocn)
+    allocate(aflds(2))
+    allocate(dflds(2))
+    allocate(oflds(2))
+    aflds = (/'Faxa_taux', 'Faxa_tauy'/)
+    dflds = (/'Faxd_taux', 'Faxd_tauy'/)
+    oflds = (/'Foxx_taux', 'Foxx_tauy'/)
+    do n = 1,size(oflds)
        if (phase == 'advertise') then
-          if (is_local%wrap%comp_present(compice) .and. is_local%wrap%comp_present(compocn)) then
-             call addfld_from(compice, trim(fldname))
-             call addfld_from(compocn, trim(fldname))
+          if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn) &
+          .and. is_local%wrap%comp_present(compdat)) then
+             call addfld_from(compatm, trim(aflds(n)))
+             call addfld_from(compdat, trim(dflds(n)))
+             call addfld_to(compocn, trim(oflds(n)))
           end if
        else
-          if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(fldname), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compice,compice), trim(fldname), rc=rc)) then
-             call addmap_from(compice, trim(fldname), compocn,  mapfcopy, 'unset', 'unset')
-             call addmrg_to(compocn, trim(fldname), &
-                  mrg_from=compice, mrg_fld=trim(fldname), mrg_type='copy_with_weights', mrg_fracname='ifrac')
+          if ( fldchk(is_local%wrap%FBexp(compocn)     , trim(oflds(n)), rc=rc) .and. &
+          fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
+          fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
+             call addmap_from(compdat, trim(dflds(n)), compocn, maptype_dat, 'none', 'unset')
+             call addmap_from(compatm, trim(aflds(n)), compocn, maptype, 'none', 'unset')
           end if
        end if
     end do
-    deallocate(flds)
-
-    ! to ocn: partitioned stokes drift from wav
-    allocate(flds(6))
-    flds = (/'Sw_ustokes1', 'Sw_ustokes2', 'Sw_ustokes3', &
-             'Sw_vstokes1', 'Sw_vstokes2', 'Sw_vstokes3'/)
-    do n = 1,size(flds)
-       fldname = trim(flds(n))
-       if (phase == 'advertise') then
-          if (is_local%wrap%comp_present(compwav) .and. is_local%wrap%comp_present(compocn)) then
-             call addfld_from(compwav, trim(fldname))
-             call addfld_to(compocn, trim(fldname))
-          end if
-       else
-          if ( fldchk(is_local%wrap%FBexp(compocn)        , trim(fldname), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compwav,compwav), trim(fldname), rc=rc)) then
-             call addmap_from(compwav, trim(fldname), compocn, mapbilnr_nstod, 'one', 'unset')
-             call addmrg_to(compocn, trim(fldname), mrg_from=compwav, mrg_fld=trim(fldname), mrg_type='copy')
-          end if
-       end if
-    end do
-    deallocate(flds)
+    deallocate(aflds)
+    deallocate(dflds)
+    deallocate(oflds)
 
     !=====================================================================
     ! FIELDS TO WAV (compwav)
     !=====================================================================
 
-    ! to wav - 10m winds and bottom temperature from atm
-    allocate(flds(3))
-    flds = (/'Sa_u10m', 'Sa_v10m', 'Sa_tbot'/)
+    ! to wav - 10m winds from atm
+    allocate(flds(2))
+    flds = (/'Sa_u10m', 'Sa_v10m'/)
     do n = 1,size(flds)
        fldname = trim(flds(n))
        if (phase == 'advertise') then
@@ -351,56 +277,14 @@ contains
              call addfld_to(compwav, trim(fldname))
           end if
        else
-          if ( fldchk(is_local%wrap%FBexp(compwav)        , trim(fldname), rc=rc) .and. &
+          if ( fldchk(is_local%wrap%FBexp(compwav), trim(fldname), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(fldname), rc=rc)) then
-             call addmap_from(compatm, trim(fldname), compwav, mapnstod_consf, 'one', 'unset')
+             call addmap_from(compatm, trim(fldname), compwav, maptype, 'none', 'unset')
              call addmrg_to(compwav, trim(fldname), mrg_from=compatm, mrg_fld=trim(fldname), mrg_type='copy')
           end if
        end if
-     end do
-     deallocate(flds)
-
-     ! to wav: sea ice fraction, thickness and floe diameter
-!     allocate(flds(3))
-!     flds = (/'Si_ifrac   ', 'Si_floediam', 'Si_thick   '/)
-!     do n = 1,size(flds)
-!        fldname = trim(flds(n))
-!        if (phase == 'advertise') then
-!           if (is_local%wrap%comp_present(compice) .and. is_local%wrap%comp_present(compwav)) then
-!              call addfld(fldListFr(compice)%flds, trim(fldname))
-!              call addfld(fldListTo(compwav)%flds, trim(fldname))
-!           end if
-!        else
-!           if ( fldchk(is_local%wrap%FBexp(compwav)        , trim(fldname), rc=rc) .and. &
-!                fldchk(is_local%wrap%FBImp(compice,compice), trim(fldname), rc=rc)) then
-!               call addmap(fldListFr(compice)%flds, trim(fldname), compwav, mapbilnr_nstod, 'one', 'unset')
-!               call addmrg(fldListTo(compwav)%flds, trim(fldname), mrg_from=compice, mrg_fld=trim(fldname), mrg_type='copy')
-!           end if
-!        end if
-!      end do
-!      deallocate(flds)
-
-     ! to wav: zonal sea water velocity from ocn
-     ! to wav: meridional sea water velocity from ocn
-     ! to wav: surface temperature from ocn
-     allocate(flds(3))
-     flds = (/'So_u', 'So_v', 'So_t'/)
-     do n = 1,size(flds)
-        fldname = trim(flds(n))
-        if (phase == 'advertise') then
-           if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compwav)) then
-              call addfld_from(compocn, trim(fldname))
-              call addfld_to(compwav, trim(fldname))
-           end if
-        else
-           if ( fldchk(is_local%wrap%FBexp(compwav)        , trim(fldname), rc=rc) .and. &
-                fldchk(is_local%wrap%FBImp(compocn,compocn), trim(fldname), rc=rc)) then
-              call addmap_from(compocn, trim(fldname), compwav, mapbilnr_nstod , 'one', 'unset')
-              call addmrg_to(compwav, trim(fldname), mrg_from=compocn, mrg_fld=trim(fldname), mrg_type='copy')
-           end if
-        end if
-     end do
-     deallocate(flds)
+    end do
+    deallocate(flds)
 
   end subroutine esmFldsExchange_hafs_mom6
 
