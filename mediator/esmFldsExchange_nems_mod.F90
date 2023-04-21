@@ -26,7 +26,6 @@ contains
     use med_utils_mod         , only : chkerr => med_utils_chkerr
     use med_methods_mod       , only : fldchk => med_methods_FB_FldChk
     use med_internalstate_mod , only : InternalState
-    use med_internalstate_mod , only : mastertask, logunit
     use med_internalstate_mod , only : compmed, compatm, compocn, compice, complnd, compwav, ncomps
     use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch
     use med_internalstate_mod , only : mapfcopy, mapnstod, mapnstod_consd, mapnstod_consf
@@ -40,8 +39,6 @@ contains
     use esmFlds               , only : addfld_aoflux => med_fldList_addfld_aoflux
     use esmFlds               , only : addmap_aoflux => med_fldList_addmap_aoflux
 
-    use med_internalstate_mod , only : InternalState, mastertask, logunit
-
     ! input/output parameters:
     type(ESMF_GridComp)              :: gcomp
     character(len=*) , intent(in)    :: phase
@@ -49,7 +46,7 @@ contains
 
     ! local variables:
     type(InternalState) :: is_local
-    integer             :: i, n, maptype
+    integer             :: n, maptype
     character(len=CX)   :: msgString
     character(len=CL)   :: cvalue
     character(len=CS)   :: fldname
@@ -309,7 +306,7 @@ contains
     else
        if ( fldchk(is_local%wrap%FBexp(compatm)        , 'Sw_z0', rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compwav,compwav), 'Sw_z0', rc=rc)) then
-          call addmap_from(compwav, 'Sw_z0', compatm, mapnstod_consf, 'one', 'unset')
+          call addmap_from(compwav, 'Sw_z0', compatm, mapbilnr_nstod, 'one', 'unset')
           call addmrg_to(compatm, 'Sw_z0', mrg_from=compwav, mrg_fld='Sw_z0', mrg_type='copy')
        end if
     end if
@@ -701,7 +698,7 @@ contains
        else
           if ( fldchk(is_local%wrap%FBexp(compwav)        , trim(fldname), rc=rc) .and. &
                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(fldname), rc=rc)) then
-             call addmap_from(compatm, trim(fldname), compwav, mapnstod_consf, 'one', 'unset')
+             call addmap_from(compatm, trim(fldname), compwav, mapbilnr_nstod, 'one', 'unset')
              call addmrg_to(compwav, trim(fldname), mrg_from=compatm, mrg_fld=trim(fldname), mrg_type='copy')
           end if
        end if

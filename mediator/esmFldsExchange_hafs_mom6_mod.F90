@@ -26,7 +26,7 @@ contains
     use med_utils_mod         , only : chkerr => med_utils_chkerr
     use med_methods_mod       , only : fldchk => med_methods_FB_FldChk
     use med_internalstate_mod , only : InternalState
-    use med_internalstate_mod , only : mastertask, logunit
+    use med_internalstate_mod , only : maintask, logunit
     use med_internalstate_mod , only : compmed, compatm, compdat, compocn, compice, comprof, compwav, ncomps
     use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch
     use med_internalstate_mod , only : mapfcopy, mapnstod, mapnstod_consd, mapnstod_consf
@@ -41,7 +41,7 @@ contains
     use esmFlds               , only : addfld_aoflux => med_fldList_addfld_aoflux
     use esmFlds               , only : addmap_aoflux => med_fldList_addmap_aoflux
 
-    use med_internalstate_mod , only : InternalState, mastertask, logunit
+    use med_internalstate_mod , only : InternalState, maintask, logunit
 
     ! input/output parameters:
     type(ESMF_GridComp)              :: gcomp
