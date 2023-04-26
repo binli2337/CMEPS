@@ -485,7 +485,7 @@ contains
           ldstprint = .true.
        end if
     else if (mapindex == mapfillv_consf) then
-       if (mastertask) then
+       if (maintask) then
           write(logunit,'(A)') trim(subname)//' creating RH '//trim(mapname)//' for '//trim(string)
        end if
        call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=routehandles(mapfillv_consf), &
