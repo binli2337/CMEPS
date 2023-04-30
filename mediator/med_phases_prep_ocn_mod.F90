@@ -749,7 +749,7 @@ contains
     if (dbug_flag > 20) then
        call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
     end if
-    call memcheck(subname, 5, mastertask)
+    call memcheck(subname, 5, maintask)
 
     ! Get the internal state
     nullify(is_local%wrap)
@@ -771,7 +771,7 @@ contains
        wgtm01(:) = -1.0_R8
        customwgt1(:) = 0.94_R8
        customwgt2(:) = -1.0_R8/const_lhvap
-    if (mastertask) then
+    if (maintask) then
        write(logunit,'(a)') trim(subname)//' lsize= '
        write(logunit,'(i10)')  lsize
     end if
@@ -797,7 +797,7 @@ contains
             FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_rain', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 !BL
-!    if (mastertask) then
+!    if (maintask) then
 !       write(logunit,'(a)') trim(subname)//' customewgt1= '
 !       write(logunit,'(f10.4)')  customwgt1(1),customwgt1(2993)
 !    end if
