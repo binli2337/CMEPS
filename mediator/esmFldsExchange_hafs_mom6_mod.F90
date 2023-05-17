@@ -27,11 +27,10 @@ contains
     use med_methods_mod       , only : fldchk => med_methods_FB_FldChk
     use med_internalstate_mod , only : InternalState
     use med_internalstate_mod , only : maintask, logunit
-    use med_internalstate_mod , only : compmed, compatm, compdat, compocn, compice, comprof, compwav, ncomps
-    use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch
-    use med_internalstate_mod , only : mapfcopy, mapnstod, mapnstod_consd, mapnstod_consf
-    use med_internalstate_mod , only : mapconsf_aofrac, mapfillv_bilnr, mapbilnr_nstod
-    use med_internalstate_mod , only : mapfillv_consf
+    use med_internalstate_mod , only : compmed, compatm, compdat, compocn, comprof, compwav, ncomps
+    use med_internalstate_mod , only : mapbilnr
+    use med_internalstate_mod , only : mapfcopy
+    use med_internalstate_mod , only : mapfillv_bilnr
     use med_internalstate_mod , only : coupling_mode, mapnames
     use esmFlds               , only : med_fldList_type
     use esmFlds               , only : addfld_to => med_fldList_addfld_to
@@ -99,12 +98,18 @@ contains
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn)) call addfld_from(compocn, 'So_omask')
     else
-       if ( fldchk(is_local%wrap%FBexp(compice)        , trim(fldname), rc=rc) .and. &
-            fldchk(is_local%wrap%FBImp(compocn,compocn), trim(fldname), rc=rc)) then
-          call addmap_from(compocn, 'So_omask', compice,  mapfcopy, 'unset', 'unset')
-       end if
+       if (fldchk(is_local%wrap%FBImp(compocn,compocn),'So_omask',rc=rc)) then
+          call ESMF_LogWrite(trim(subname)//": Field connected "//"So_omask", &
+          ESMF_LOGMSG_INFO)
+       else
+          call ESMF_LogSetError(ESMF_FAILURE, &
+             msg=trim(subname)//": Field is not connected "//"So_omask", &
+             line=__LINE__, file=__FILE__, rcToReturn=rc)
+          return  ! bail out
+       endif
     end if
 
+    if (trim(coupling_mode) == 'hafs_mom6') then
     !=====================================================================
     ! FIELDS TO ATMOSPHERE (compatm)
     !=====================================================================
@@ -136,6 +141,7 @@ contains
           call addmrg_to(compatm, 'Sw_z0', mrg_from=compwav, mrg_fld='Sw_z0', mrg_type='copy')
        end if
     end if
+    fi
 
     !=====================================================================
     ! FIELDS TO OCEAN (compocn)
@@ -146,25 +152,8 @@ contains
     ! - downward direct visible ("v") incident solar radiation
     ! - downward diffuse visible ("v") incident solar radiation
 
-    ! to ocn: sea level pressure from atm
-! Sa_pslv may be used to compute pressure gradient
-!    if (phase == 'advertise') then
-!       if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn)) then
-!          call addfld_from(compatm, 'Sa_pslv')
-!          call addfld_from(compdat, 'Sd_pslv')
-!          call addfld_to(compocn, 'Sa_pslv')
-!       end if
-!    else
-!       if ( fldchk(is_local%wrap%FBexp(compocn)        , 'Sa_pslv', rc=rc) .and. &
-!            fldchk(is_local%wrap%FBImp(compdat,compdat), 'Sd_pslv', rc=rc) .and. &
-!            fldchk(is_local%wrap%FBImp(compatm,compatm), 'Sa_pslv', rc=rc)) then
-!          call addmap_from(compdat, 'Sd_pslv', compocn, maptype_dat, 'none', 'unset')
-!          call addmap_from(compatm, 'Sa_pslv', compocn, maptype, 'none', 'unset')
-!          call addmrg_to(compocn, 'Sa_pslv', mrg_from=compatm, mrg_fld='Sa_pslv', mrg_type='copy')
-!       end if
-!    end if
 
-    ! to ocn: from sw from atm and sw from cdeps (custom merge in med_phases_prep_ocn)
+    ! to ocn: sw from atm and sw from cdeps (custom merge in med_phases_prep_ocn)
     ! - downward direct  near-infrared ("n" or "i") incident solar radiation
     ! - downward diffuse near-infrared ("n" or "i") incident solar radiation
     ! - downward direct visible ("v") incident solar radiation
@@ -234,13 +223,14 @@ contains
     deallocate(dflds)
     deallocate(aflds)
 
-    ! to ocn: merge surface stress (custom merge calculation in med_phases_prep_ocn)
-    allocate(aflds(2))
-    allocate(dflds(2))
-    allocate(oflds(2))
-    aflds = (/'Faxa_taux', 'Faxa_tauy'/)
-    dflds = (/'Faxd_taux', 'Faxd_tauy'/)
-    oflds = (/'Foxx_taux', 'Foxx_tauy'/)
+    ! to ocn: merge surface stress and sea level pressure Sa_pslv (custom merge calculation in med_phases_prep_ocn)
+    ! Sa_pslv may be used to compute pressure gradient
+    allocate(aflds(3))
+    allocate(dflds(3))
+    allocate(oflds(3))
+    aflds = (/'Faxa_taux', 'Faxa_tauy', 'Sa_pslv'/)
+    dflds = (/'Faxd_taux', 'Faxd_tauy', 'Sd_pslv'/)
+    oflds = (/'Foxx_taux', 'Foxx_tauy', 'Sa_pslv'/)
     do n = 1,size(oflds)
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn) &
