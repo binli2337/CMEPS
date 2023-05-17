@@ -53,7 +53,7 @@ contains
     character(len=CX)   :: msgString
     character(len=CL)   :: cvalue
     character(len=CS)   :: fldname
-    character(len=CS), allocatable :: flds(:), oflds(:), aflds(:), dflds(:)
+    character(len=CS), allocatable :: flds(:), wflds(:), oflds(:), aflds(:), dflds(:)
     character(len=*) , parameter   :: subname='(esmFldsExchange_hafs_mom6)'
     !--------------------------------------
 
@@ -109,7 +109,6 @@ contains
        endif
     end if
 
-    if (trim(coupling_mode) == 'hafs_mom6') then
     !=====================================================================
     ! FIELDS TO ATMOSPHERE (compatm)
     !=====================================================================
@@ -141,7 +140,6 @@ contains
           call addmrg_to(compatm, 'Sw_z0', mrg_from=compwav, mrg_fld='Sw_z0', mrg_type='copy')
        end if
     end if
-    fi
 
     !=====================================================================
     ! FIELDS TO OCEAN (compocn)
@@ -224,7 +222,6 @@ contains
     deallocate(aflds)
 
     ! to ocn: merge surface stress and sea level pressure Sa_pslv (custom merge calculation in med_phases_prep_ocn)
-    ! Sa_pslv may be used to compute pressure gradient
     allocate(aflds(3))
     allocate(dflds(3))
     allocate(oflds(3))
@@ -256,25 +253,36 @@ contains
     ! FIELDS TO WAV (compwav)
     !=====================================================================
 
-    ! to wav - 10m winds from atm
-    allocate(flds(2))
-    flds = (/'Sa_u10m', 'Sa_v10m'/)
+    ! to wav - 10m winds from atm and datm (custom merge calculation in
+    ! med_phases_prep_wav)
+    allocate(aflds(2))
+    allocate(dflds(2))
+    allocate(oflds(2))
+    aflds = (/'Sa_u10m', 'Sa_v10m'/)
+    dflds = (/'Sd_u10m', 'Sd_u10m'/)
+    wflds = (/'Sa_u10m', 'Sa_u10m'/)
     do n = 1,size(flds)
-       fldname = trim(flds(n))
+       !fldname = trim(flds(n))
        if (phase == 'advertise') then
-          if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compwav)) then
-             call addfld_from(compatm, trim(fldname))
-             call addfld_to(compwav, trim(fldname))
+          if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compwav) &
+          .and. is_local%wrap%comp_present(compdat)) then
+             call addfld_from(compatm, trim(aflds(n)))
+             call addfld_from(compdat, trim(dflds(n)))
+             call addfld_to(compwav, trim(wflds(n)))
           end if
        else
-          if ( fldchk(is_local%wrap%FBexp(compwav), trim(fldname), rc=rc) .and. &
-               fldchk(is_local%wrap%FBImp(compatm,compatm), trim(fldname), rc=rc)) then
-             call addmap_from(compatm, trim(fldname), compwav, maptype, 'none', 'unset')
-             call addmrg_to(compwav, trim(fldname), mrg_from=compatm, mrg_fld=trim(fldname), mrg_type='copy')
+          if ( fldchk(is_local%wrap%FBexp(compwav)     , trim(wflds(n)), rc=rc) .and. &
+          fldchk(is_local%wrap%FBImp(compdat,compdat), trim(dflds(n)), rc=rc) .and. &
+          fldchk(is_local%wrap%FBImp(compatm,compatm), trim(aflds(n)), rc=rc)) then
+             call addmap_from(compdat, trim(dflds(n)), compwav, maptype_dat, 'none', 'unset')
+             call addmap_from(compatm, trim(aflds(n)), compwav, maptype, 'none', 'unset')
+            ! call addmrg_to(compwav, trim(fldname), mrg_from=compatm, mrg_fld=trim(fldname), mrg_type='copy')
           end if
        end if
     end do
-    deallocate(flds)
+    deallocate(aflds)
+    deallocate(dflds)
+    deallocate(wflds)
 
   end subroutine esmFldsExchange_hafs_mom6
 

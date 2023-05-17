@@ -9,6 +9,7 @@ module med_phases_prep_wav_mod
   use med_constants_mod     , only : dbug_flag => med_constants_dbug_flag
   use med_internalstate_mod , only : InternalState, maintask, logunit
   use med_merge_mod         , only : med_merge_auto, med_merge_field
+  use med_merge_mod         , only : hafs_merge_forcing
   use med_map_mod           , only : med_map_field_packed
   use med_utils_mod         , only : memcheck      => med_memcheck
   use med_utils_mod         , only : chkerr        => med_utils_ChkErr
@@ -17,8 +18,9 @@ module med_phases_prep_wav_mod
   use med_methods_mod       , only : FB_average    => med_methods_FB_average
   use med_methods_mod       , only : FB_copy       => med_methods_FB_copy
   use med_methods_mod       , only : FB_reset      => med_methods_FB_reset
+  use med_methods_mod       , only : FB_GetFldPtr  => med_methods_FB_GetFldPtr
   use esmFlds               , only : med_fldList_GetfldListTo
-  use med_internalstate_mod , only : compwav
+  use med_internalstate_mod , only : compwav, compdat, compatm, coupling_mode
   use perf_mod              , only : t_startf, t_stopf
 
   implicit none
@@ -27,6 +29,8 @@ module med_phases_prep_wav_mod
   public :: med_phases_prep_wav_init   ! called from med.F90
   public :: med_phases_prep_wav_accum  ! called from run sequence
   public :: med_phases_prep_wav_avg    ! called from run sequence
+
+  private :: med_phases_prep_wav_custom_hafs_mom6
 
   character(*), parameter :: u_FILE_u  = &
        __FILE__
@@ -189,4 +193,65 @@ contains
     call t_stopf('MED:'//subname)
 
   end subroutine med_phases_prep_wav_avg
+
+  subroutine med_phases_prep_wav_custom_hafs_mom6(gcomp, rc)
+
+    ! ----------------------------------------------
+    ! Custom calculation for hafs_mom6
+    ! ----------------------------------------------
+
+    use ESMF , only : ESMF_GridComp
+    use ESMF , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF , only : ESMF_FAILURE,  ESMF_LOGMSG_ERROR
+
+    ! input/output variables
+    type(ESMF_GridComp)  :: gcomp
+    integer, intent(out) :: rc
+
+    ! local variables
+    type(InternalState) :: is_local
+    real(R8), pointer   :: wgtp01(:)
+    real(R8), pointer   :: u10m(:)
+    integer             :: lsize
+    character(len=*), parameter    :: subname='(med_phases_prep_wav_custom_hafs_mom6)'
+    !---------------------------------------
+
+    rc = ESMF_SUCCESS
+
+    call t_startf('MED:'//subname)
+    if (dbug_flag > 20) then
+       call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
+    end if
+    call memcheck(subname, 5, maintask)
+
+    ! Get the internal state
+    nullify(is_local%wrap)
+    call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    call FB_GetFldPtr(is_local%wrap%FBExp(compwav), 'Sa_u10m' , u10m, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    lsize = size(u10m)
+    allocate(wgtp01(lsize))
+    wgtp01(:) = 1.0_R8
+    if (maintask) then
+       write(logunit,'(a)') trim(subname)//' lsize= '
+       write(logunit,'(i10)')  lsize
+    end if
+    if (trim(coupling_mode) == 'hafs_mom6' ) then
+       call hafs_merge_forcing(is_local%wrap%FBExp(compwav),   'Sa_u10m',  &
+            FBinA=is_local%wrap%FBImp(compdat,compwav), fnameA='Sd_u10m', wgtA=wgtp01, &
+            FBinB=is_local%wrap%FBImp(compatm,compwav), fnameB='Sa_u10m', wgtB=wgtp01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    end if
+
+    deallocate(wgtp01)
+
+    if (dbug_flag > 20) then
+       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
+    end if
+    call t_stopf('MED:'//subname)
+
+  end subroutine med_phases_prep_wav_custom_hafs_mom6
 end module med_phases_prep_wav_mod
