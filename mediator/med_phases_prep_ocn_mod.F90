@@ -9,6 +9,7 @@ module med_phases_prep_ocn_mod
   use med_constants_mod     , only : dbug_flag => med_constants_dbug_flag
   use med_internalstate_mod , only : InternalState, maintask, logunit
   use med_merge_mod         , only : med_merge_auto, med_merge_field
+  use med_merge_mod         , only : hafs_merge_forcing
   use med_map_mod           , only : med_map_field_packed
   use med_utils_mod         , only : memcheck      => med_memcheck
   use med_utils_mod         , only : chkerr        => med_utils_ChkErr
@@ -21,6 +22,7 @@ module med_phases_prep_ocn_mod
   use med_methods_mod       , only : FB_reset      => med_methods_FB_reset
   use esmFlds               , only : med_fldList_GetfldListTo, med_fldlist_type
   use med_internalstate_mod , only : compocn, compatm, compice, coupling_mode
+  use med_internalstate_mod , only : compdat
   use perf_mod              , only : t_startf, t_stopf
 
   implicit none
@@ -32,6 +34,7 @@ module med_phases_prep_ocn_mod
 
   private :: med_phases_prep_ocn_custom_cesm
   private :: med_phases_prep_ocn_custom_nems
+  private :: med_phases_prep_ocn_custom_hafs_mom6
 
   character(*), parameter :: u_FILE_u  = &
        __FILE__
@@ -130,6 +133,7 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else if (trim(coupling_mode) == 'nems_frac' .or. &
              trim(coupling_mode) == 'nems_orig' .or. &
+             trim(coupling_mode) == 'hafs_mom6' .or. &
              trim(coupling_mode) == 'nems_frac_aoflux_sbs') then
        call med_merge_auto(&
             is_local%wrap%med_coupling_active(:,compocn), &
@@ -218,6 +222,9 @@ contains
     ! custom merges to ocean
     if (trim(coupling_mode) == 'cesm') then
        call med_phases_prep_ocn_custom_cesm(gcomp, rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else if (trim(coupling_mode) == 'hafs_mom6') then
+       call med_phases_prep_ocn_custom_hafs_mom6(gcomp, rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else if (trim(coupling_mode(1:5)) == 'nems_') then
        call med_phases_prep_ocn_custom_nems(gcomp, rc)
@@ -706,4 +713,126 @@ contains
 
   end subroutine med_phases_prep_ocn_custom_nems
 
+  subroutine med_phases_prep_ocn_custom_hafs_mom6(gcomp, rc)
+
+    ! ----------------------------------------------
+    ! Custom calculation for hafs_mom6
+    ! ----------------------------------------------
+
+    use ESMF , only : ESMF_GridComp
+    use ESMF , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
+    use ESMF , only : ESMF_FAILURE,  ESMF_LOGMSG_ERROR
+
+    ! input/output variables
+    type(ESMF_GridComp)  :: gcomp
+    integer, intent(out) :: rc
+
+    ! local variables
+    type(InternalState) :: is_local
+    real(R8), pointer   :: ocnwgt1(:)
+    real(R8), pointer   :: icewgt1(:)
+    real(R8), pointer   :: wgtp01(:)
+    real(R8), pointer   :: wgtm01(:)
+    real(R8), pointer   :: customwgt1(:)
+    real(R8), pointer   :: customwgt2(:)
+    real(R8), pointer   :: ifrac(:)
+    real(R8), pointer   :: ofrac(:)
+    integer             :: lsize
+    real(R8)        , parameter    :: const_lhvap = 2.501e6_R8  ! latent heat of evaporation ~ J/kg
+    character(len=*), parameter    :: subname='(med_phases_prep_ocn_custom_hafs_mom6)'
+    !---------------------------------------
+
+    rc = ESMF_SUCCESS
+
+    call t_startf('MED:'//subname)
+    if (dbug_flag > 20) then
+       call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
+    end if
+    call memcheck(subname, 5, maintask)
+
+    ! Get the internal state
+    nullify(is_local%wrap)
+    call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    ! get ice and open ocean fractions on the ocn mesh
+    call FB_GetFldPtr(is_local%wrap%FBfrac(compocn), 'ofrac' , ofrac, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    lsize = size(ofrac)
+    allocate(customwgt1(lsize))
+    allocate(customwgt2(lsize))
+    allocate(wgtm01(lsize))
+    allocate(wgtp01(lsize))
+    wgtp01(:) = 1.0_R8
+    wgtm01(:) = -1.0_R8
+    customwgt2(:) = -1.0_R8/const_lhvap
+    if (dbug_flag > 20) then
+       if (maintask) then
+          write(logunit,'(a)') trim(subname)//' lsize= '
+          write(logunit,'(i10)')  lsize
+       end if
+    end if
+    if (trim(coupling_mode) == 'hafs_mom6' ) then
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Faxa_evap', &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_lat' , wgtA=customwgt2, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_lat', wgtB=customwgt2, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_lwnet',  &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_lwnet', wgtA=wgtp01, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_lwnet', wgtB=wgtp01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_rain',  &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_rain', wgtA=wgtp01, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_rain', wgtB=wgtp01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_sen',  &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_sen', wgtA=wgtm01, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_sen', wgtB=wgtm01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_taux', &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_taux', wgtA=wgtm01, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_taux', wgtB=wgtm01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_tauy', &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_tauy', wgtA=wgtm01, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_tauy', wgtB=wgtm01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    end if
+
+    ! netsw_for_ocn = [downsw_from_atm*(1-ice_fraction)*(1-ocn_albedo)] + [pensw_from_ice*(ice_fraction)]
+    customwgt1(:) = (1.0_R8 - 0.06_R8)
+    call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_swnet_vdr', &
+         FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_swvdr' , wgtA=customwgt1, &
+         FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_swvdr' , wgtB=customwgt1, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_swnet_vdf', &
+         FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_swvdf' , wgtA=customwgt1, &
+         FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_swvdf' , wgtB=customwgt1, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_swnet_idr', &
+         FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_swndr' , wgtA=customwgt1, &
+         FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_swndr' , wgtB=customwgt1, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_swnet_idf', &
+         FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_swndf' , wgtA=customwgt1, &
+         FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_swndf' , wgtB=customwgt1, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    deallocate(wgtm01)
+    deallocate(wgtp01)
+    deallocate(customwgt1)
+    deallocate(customwgt2)
+
+    if (dbug_flag > 20) then
+       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
+    end if
+    call t_stopf('MED:'//subname)
+
+  end subroutine med_phases_prep_ocn_custom_hafs_mom6
 end module med_phases_prep_ocn_mod

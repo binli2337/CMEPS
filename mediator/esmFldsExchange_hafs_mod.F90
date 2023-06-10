@@ -9,6 +9,7 @@ module esmFldsExchange_hafs_mod
   use med_kind_mod          , only : R8=>SHR_KIND_R8
   use med_internalstate_mod , only : compmed
   use med_internalstate_mod , only : compatm
+  use med_internalstate_mod , only : compdat
   use med_internalstate_mod , only : compocn
   use med_internalstate_mod , only : compwav
   use med_internalstate_mod , only : ncomps
@@ -33,6 +34,10 @@ module esmFldsExchange_hafs_mod
     character(len=CX) :: atm2ocn_smap = 'unset'
     character(len=CX) :: atm2ocn_vmap = 'unset'
     character(len=CX) :: atm2wav_smap = 'unset'
+    character(len=CX) :: dat2ocn_fmap = 'unset'
+    character(len=CX) :: dat2ocn_smap = 'unset'
+    character(len=CX) :: dat2ocn_vmap = 'unset'
+    character(len=CX) :: dat2wav_smap = 'unset'
     character(len=CX) :: ocn2atm_fmap = 'unset'
     character(len=CX) :: ocn2atm_smap = 'unset'
     character(len=CX) :: ocn2wav_smap = 'unset'
@@ -40,6 +45,7 @@ module esmFldsExchange_hafs_mod
     character(len=CX) :: wav2atm_smap = 'unset'
     character(len=CS) :: mapnorm      = 'one'
     logical           :: atm_present  = .false.
+    logical           :: dat_present  = .false.
     logical           :: ocn_present  = .false.
     logical           :: wav_present  = .false.
   end type
@@ -99,10 +105,11 @@ contains
     logical             :: isPresent
     character(len=CL)   :: cvalue
     character(len=CS)   :: fldname
-    character(len=CS)   :: fldname1, fldname2
+    character(len=CS)   :: fldname1, fldname2, fldname3
     type(gcomp_attr)    :: hafs_attr
     character(len=CS), allocatable :: S_flds(:)
     character(len=CS), allocatable :: F_flds(:,:)
+    character(len=CS), allocatable :: V_flds(:,:)
     character(len=*) , parameter   :: subname='(esmFldsExchange_hafs_advt)'
     !--------------------------------------
 
@@ -185,9 +192,9 @@ contains
     ! ---------------------------------------------------------------------
     ! to ocn: state fields
     ! ---------------------------------------------------------------------
-    if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-      allocate(S_flds(6))
-      S_flds = (/'Sa_u10m', & ! inst_zonal_wind_height10m
+    if (trim(coupling_mode) == 'hafs' .and. hafs_attr%atm_present .and. hafs_attr%ocn_present) then
+       allocate(S_flds(6))
+       S_flds = (/'Sa_u10m', & ! inst_zonal_wind_height10m
                  'Sa_v10m', & ! inst_merid_wind_height10m
                  'Sa_t2m ', & ! inst_temp_height2m
                  'Sa_q2m ', & ! inst_spec_humid_height2m
@@ -201,25 +208,72 @@ contains
       deallocate(S_flds)
     end if
 
+    if (trim(coupling_mode) == 'hafs_mom6' .and. hafs_attr%atm_present &
+          .and. hafs_attr%dat_present .and. hafs_attr%ocn_present) then
+       allocate(S_flds(3))
+       S_flds = (/'Sa_pslv','Sd_pslv','Sa_pslv'/) ! inst_pres_height_surface
+       fldname1 = trim(S_flds(1))
+       fldname2 = trim(S_flds(2))
+       fldname3 = trim(S_flds(3))
+       if(hafs_attr%atm_present .and. hafs_attr%ocn_present) then
+          call addfld_from(compatm, trim(fldname1))
+          call addfld_to(compocn, trim(fldname3))
+       end if
+       if(hafs_attr%dat_present .and. hafs_attr%ocn_present) then
+          call addfld_from(compdat, trim(fldname2))
+          call addfld_to(compocn, trim(fldname3))
+       end if
+       deallocate(S_flds)
+    end if
+
     ! ---------------------------------------------------------------------
     ! to ocn: flux fields
     ! ---------------------------------------------------------------------
-    if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-      allocate(F_flds(7,2))
-      F_flds(1,:) = (/'Faxa_taux ','Faxa_taux '/) ! mean_zonal_moment_flx_atm
-      F_flds(2,:) = (/'Faxa_tauy ','Faxa_tauy '/) ! mean_merid_moment_flx_atm
-      F_flds(3,:) = (/'Faxa_rain ','Faxa_rain '/) ! mean_prec_rate
-      F_flds(4,:) = (/'Faxa_swnet','Faxa_swnet'/) ! mean_net_sw_flx
-      F_flds(5,:) = (/'Faxa_lwnet','Faxa_lwnet'/) ! mean_net_lw_flx
-      F_flds(6,:) = (/'Faxa_sen  ','Faxa_sen  '/) ! mean_sensi_heat_flx
-      F_flds(7,:) = (/'Faxa_lat  ','Faxa_lat  '/) ! mean_laten_heat_flx
-      do n = 1,size(F_flds,1)
-         fldname1 = trim(F_flds(n,1))
-         fldname2 = trim(F_flds(n,2))
-         call addfld_from(compatm, trim(fldname1))
-         call addfld_to(compocn, trim(fldname2))
-      end do
-      deallocate(F_flds)
+    if (trim(coupling_mode) == 'hafs' .and. hafs_attr%atm_present .and. hafs_attr%ocn_present) then
+       allocate(F_flds(7,2))
+       F_flds(1,:) = (/'Faxa_taux ','Faxa_taux '/) ! mean_zonal_moment_flx_atm
+       F_flds(2,:) = (/'Faxa_tauy ','Faxa_tauy '/) ! mean_merid_moment_flx_atm
+       F_flds(3,:) = (/'Faxa_rain ','Faxa_rain '/) ! mean_prec_rate
+       F_flds(4,:) = (/'Faxa_swnet','Faxa_swnet'/) ! mean_net_sw_flx
+       F_flds(5,:) = (/'Faxa_lwnet','Faxa_lwnet'/) ! mean_net_lw_flx
+       F_flds(6,:) = (/'Faxa_sen  ','Faxa_sen  '/) ! mean_sensi_heat_flx
+       F_flds(7,:) = (/'Faxa_lat  ','Faxa_lat  '/) ! mean_laten_heat_flx
+       do n = 1,size(F_flds,1)
+          fldname1 = trim(F_flds(n,1))
+          fldname2 = trim(F_flds(n,2))
+          call addfld_from(compatm, trim(fldname1))
+          call addfld_to(compocn, trim(fldname2))
+       end do
+       deallocate(F_flds)
+    end if
+
+    if (trim(coupling_mode) == 'hafs_mom6' .and. hafs_attr%atm_present &
+          .and. hafs_attr%dat_present .and. hafs_attr%ocn_present) then
+       allocate(F_flds(10,3))
+       F_flds(1,:) = (/'Faxa_taux','Faxd_taux','Foxx_taux'/) ! mean_zonal_moment_flx_atm
+       F_flds(2,:) = (/'Faxa_tauy','Faxd_tauy','Foxx_tauy'/) ! mean_merid_moment_flx_atm
+       F_flds(3,:) = (/'Faxa_rain','Faxd_rain','Foxx_rain'/) ! mean_prec_rate
+       F_flds(4,:) = (/'Faxa_swndr','Faxd_swndr','Foxx_swnet_idr'/) ! mean_net_ir_direct_sw_flx
+       F_flds(5,:) = (/'Faxa_swndf','Faxd_swndf','Foxx_swnet_idf'/) ! mean_net_ir_diffuse_sw_flx
+       F_flds(6,:) = (/'Faxa_swvdr','Faxd_swvdr','Foxx_swnet_vdr'/) ! mean_net_uv+vis_direct_sw_flx
+       F_flds(7,:) = (/'Faxa_swvdf','Faxd_swvdf','Foxx_swnet_vdf'/) ! mean_net_uv+vis_diffuse_sw_flx
+       F_flds(8,:) = (/'Faxa_lwnet','Faxd_lwnet','Foxx_lwnet' /) ! mean_net_lw_flx
+       F_flds(9,:) = (/'Faxa_sen','Faxd_sen','Foxx_sen'/) ! mean_sensi_heat_flx
+       F_flds(10,:) = (/'Faxa_lat','Faxd_lat','Faxa_evap'/) ! mean_latent_heat_flx, mean_evaporation
+       do n = 1,size(F_flds,1)
+          fldname1 = trim(F_flds(n,1))
+          fldname2 = trim(F_flds(n,2))
+          fldname3 = trim(F_flds(n,3))
+          if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
+             call addfld_from(compatm, trim(fldname1))
+             call addfld_to(compocn, trim(fldname3))
+          end if
+          if (hafs_attr%dat_present .and. hafs_attr%ocn_present) then
+             call addfld_from(compdat, trim(fldname2))
+             call addfld_to(compocn, trim(fldname3))
+          end if
+       end do
+       deallocate(F_flds)
     end if
 
     !=====================================================================
@@ -229,15 +283,33 @@ contains
     ! ---------------------------------------------------------------------
     ! to wav: 10-m wind components
     ! ---------------------------------------------------------------------
-    if (hafs_attr%atm_present .and. hafs_attr%wav_present) then
-      allocate(S_flds(2))
-      S_flds = (/'Sa_u10m', 'Sa_v10m'/)
-      do n = 1,size(S_flds)
-         fldname = trim(S_flds(n))
-         call addfld_from(compatm, trim(fldname))
-         call addfld_to(compwav, trim(fldname))
-      end do
-      deallocate(S_flds)
+    if (trim(coupling_mode) == 'hafs' .and. hafs_attr%atm_present .and. hafs_attr%wav_present) then
+       allocate(S_flds(2))
+       S_flds = (/'Sa_u10m', 'Sa_v10m'/)
+       do n = 1,size(S_flds)
+          fldname = trim(S_flds(n))
+          call addfld_from(compatm, trim(fldname))
+          call addfld_to(compwav, trim(fldname))
+       end do
+       deallocate(S_flds)
+    end if
+
+    if (trim(coupling_mode) == 'hafs_mom6' .and. hafs_attr%atm_present &
+          .and. hafs_attr%dat_present .and. hafs_attr%wav_present) then
+       allocate(V_flds(2,3))
+       V_flds(1,:) = (/'Sa_u10m', 'Sd_u10m', 'Sa_u10m'/)
+       V_flds(2,:) = (/'Sa_v10m', 'Sd_v10m', 'Sa_v10m'/)
+       do n = 1,size(V_flds,1)
+          if(hafs_attr%atm_present .and. hafs_attr%wav_present) then
+             call addfld_from(compatm, trim(V_flds(n,1)))
+             call addfld_to(compwav, trim(V_flds(n,3)))
+          end if
+          if(hafs_attr%dat_present .and. hafs_attr%wav_present) then
+             call addfld_from(compdat, trim(V_flds(n,2)))
+             call addfld_to(compwav, trim(V_flds(n,3)))
+          end if
+       end do
+       deallocate(V_flds)
     end if
 
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
@@ -307,10 +379,11 @@ contains
     type(InternalState) :: is_local
     integer             :: n
     character(len=CS)   :: fldname
-    character(len=CS)   :: fldname1, fldname2
+    character(len=CS)   :: fldname1, fldname2, fldname3
     type(gcomp_attr)    :: hafs_attr
     character(len=CS), allocatable :: S_flds(:)
     character(len=CS), allocatable :: F_flds(:,:)
+    character(len=CS), allocatable :: V_flds(:,:)
     character(len=*) , parameter   :: subname='(esmFldsExchange_hafs_init)'
     !--------------------------------------
 
@@ -399,7 +472,7 @@ contains
     ! ---------------------------------------------------------------------
     ! to ocn: state fields
     ! ---------------------------------------------------------------------
-    if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
+    if (trim(coupling_mode) == 'hafs' .and. hafs_attr%atm_present .and. hafs_attr%ocn_present) then
       allocate(S_flds(6))
       S_flds = (/'Sa_u10m', & ! inst_zonal_wind_height10m
                  'Sa_v10m', & ! inst_merid_wind_height10m
@@ -421,31 +494,84 @@ contains
       deallocate(S_flds)
     end if
 
+    if (trim(coupling_mode) == 'hafs_mom6' .and. hafs_attr%atm_present &
+          .and. hafs_attr%dat_present .and. hafs_attr%ocn_present) then
+       allocate(S_flds(3))
+       S_flds = (/'Sa_pslv','Sd_pslv','Sa_pslv'/)
+       fldname1 = trim(S_flds(1))
+       fldname2 = trim(S_flds(2))
+       fldname3 = trim(S_flds(3))
+       if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname3),rc=rc) .and. &
+             fldchk(is_local%wrap%FBImp(compatm,compatm),trim(fldname1),rc=rc)) then
+             call addmap_from(compatm, trim(fldname1), compocn, mapfillv_bilnr, &
+                hafs_attr%mapnorm, hafs_attr%atm2ocn_smap)
+       end if
+       if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname3),rc=rc) .and. &
+             fldchk(is_local%wrap%FBImp(compdat,compdat),trim(fldname2),rc=rc)) then
+             call addmap_from(compdat, trim(fldname2), compocn, mapbilnr, & 
+                hafs_attr%mapnorm, hafs_attr%dat2ocn_smap)
+      end if
+       deallocate(S_flds)
+    end if
+
     ! ---------------------------------------------------------------------
     ! to ocn: flux fields
     ! ---------------------------------------------------------------------
-    if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-      allocate(F_flds(7,2))
-      F_flds(1,:) = (/'Faxa_taux ','Faxa_taux '/) ! mean_zonal_moment_flx_atm
-      F_flds(2,:) = (/'Faxa_tauy ','Faxa_tauy '/) ! mean_merid_moment_flx_atm
-      F_flds(3,:) = (/'Faxa_rain ','Faxa_rain '/) ! mean_prec_rate
-      F_flds(4,:) = (/'Faxa_swnet','Faxa_swnet'/) ! mean_net_sw_flx
-      F_flds(5,:) = (/'Faxa_lwnet','Faxa_lwnet'/) ! mean_net_lw_flx
-      F_flds(6,:) = (/'Faxa_sen  ','Faxa_sen  '/) ! mean_sensi_heat_flx
-      F_flds(7,:) = (/'Faxa_lat  ','Faxa_lat  '/) ! mean_laten_heat_flx
-      do n = 1,size(F_flds,1)
-         fldname1 = trim(F_flds(n,1))
-         fldname2 = trim(F_flds(n,2))
-         if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname2),rc=rc) .and. &
+    if (trim(coupling_mode) == 'hafs' .and. hafs_attr%atm_present .and. hafs_attr%ocn_present) then
+       allocate(F_flds(7,2))
+       F_flds(1,:) = (/'Faxa_taux ','Faxa_taux '/) ! mean_zonal_moment_flx_atm
+       F_flds(2,:) = (/'Faxa_tauy ','Faxa_tauy '/) ! mean_merid_moment_flx_atm
+       F_flds(3,:) = (/'Faxa_rain ','Faxa_rain '/) ! mean_prec_rate
+       F_flds(4,:) = (/'Faxa_swne1G/pt','Faxa_swnet'/) ! mean_net_sw_flx
+       F_flds(5,:) = (/'Faxa_lwnet','Faxa_lwnet'/) ! mean_net_lw_flx
+       F_flds(6,:) = (/'Faxa_sen  ','Faxa_sen  '/) ! mean_sensi_heat_flx
+       F_flds(7,:) = (/'Faxa_lat  ','Faxa_lat  '/) ! mean_laten_heat_flx
+       do n = 1,size(F_flds,1)
+          fldname1 = trim(F_flds(n,1))
+          fldname2 = trim(F_flds(n,2))
+          if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname2),rc=rc) .and. &
              fldchk(is_local%wrap%FBImp(compatm,compatm),trim(fldname1),rc=rc) &
-           ) then
-            call addmap_from(compatm, trim(fldname1), compocn, &
+             ) then
+             call addmap_from(compatm, trim(fldname1), compocn, &
                  mapfillv_bilnr, hafs_attr%mapnorm, hafs_attr%atm2ocn_smap)
-            call addmrg_to(compocn, trim(fldname2), &
+             call addmrg_to(compocn, trim(fldname2), &
                  mrg_from=compatm, mrg_fld=trim(fldname1), mrg_type='copy')
-         end if
-      end do
-      deallocate(F_flds)
+          end if
+       end do
+       deallocate(F_flds)
+    end if
+
+    if (trim(coupling_mode) == 'hafs_mom6' .and. hafs_attr%atm_present &
+          .and. hafs_attr%dat_present .and. hafs_attr%ocn_present) then
+       allocate(F_flds(10,3))
+       F_flds(1,:) = (/'Faxa_taux','Faxd_taux','Foxx_taux'/) ! mean_zonal_moment_flx_atm
+       F_flds(2,:) = (/'Faxa_tauy','Faxd_tauy','Foxx_tauy'/) ! mean_merid_moment_flx_atm
+       F_flds(3,:) = (/'Faxa_rain','Faxd_rain','Foxx_rain'/) ! mean_prec_rate
+       F_flds(4,:) = (/'Faxa_swndr','Faxd_swndr','Foxx_swnet_idr'/) ! mean_net_ir_direct_sw_flx
+       F_flds(5,:) = (/'Faxa_swndf','Faxd_swndf','Foxx_swnet_idf'/) ! mean_net_ir_diffuse_sw_flx
+       F_flds(6,:) = (/'Faxa_swvdr','Faxd_swvdr','Foxx_swnet_vdr'/) ! mean_net_uv+vis_direct_sw_flx
+       F_flds(7,:) = (/'Faxa_swvdf','Faxd_swvdf','Foxx_swnet_vdf'/) ! mean_net_uv+vis_diffuse_sw_flx
+       F_flds(8,:) = (/'Faxa_lwnet','Faxd_lwnet','Foxx_lwnet'/) ! mean_net_lw_flx
+       F_flds(9,:) = (/'Faxa_sen','Faxd_sen','Foxx_sen'/) ! mean_sensi_heat_flx
+       F_flds(10,:) = (/'Faxa_lat','Faxd_lat','Foxx_sen'/) ! mean_laten_heat_flx
+       do n = 1,size(F_flds,1)
+          fldname1 = trim(F_flds(n,1))
+          fldname2 = trim(F_flds(n,2))
+          fldname3 = trim(F_flds(n,3))
+          if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname3),rc=rc) .and. &
+             fldchk(is_local%wrap%FBImp(compatm,compatm),trim(fldname1),rc=rc) &
+             ) then
+             call addmap_from(compatm, trim(fldname1), compocn, &
+                 mapfillv_bilnr, hafs_attr%mapnorm, hafs_attr%atm2ocn_smap)
+          end if
+          if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname3),rc=rc) .and. &
+             fldchk(is_local%wrap%FBImp(compdat,compdat),trim(fldname2),rc=rc) &
+             ) then
+             call addmap_from(compdat, trim(fldname2), compocn, &
+                 mapbilnr, hafs_attr%mapnorm, hafs_attr%dat2ocn_smap)
+          end if
+       end do
+       deallocate(F_flds)
     end if
 
     !=====================================================================
@@ -455,7 +581,7 @@ contains
     ! ---------------------------------------------------------------------
     ! to wav: 10-m wind components
     ! ---------------------------------------------------------------------
-    if (hafs_attr%atm_present .and. hafs_attr%wav_present) then
+    if (trim(coupling_mode) == 'hafs' .and. hafs_attr%atm_present .and. hafs_attr%wav_present) then
       allocate(S_flds(2))
       S_flds = (/'Sa_u10m', 'Sa_v10m'/)
       do n = 1,size(S_flds)
@@ -470,6 +596,26 @@ contains
         end if
       end do
       deallocate(S_flds)
+    end if
+
+    if (trim(coupling_mode) == 'hafs_mom6' .and. hafs_attr%atm_present &
+          .and. hafs_attr%dat_present .and. hafs_attr%wav_present) then
+       allocate(V_flds(2,3))
+       V_flds(1,:) = (/'Sa_u10m', 'Sd_u10m', 'Sa_u10m'/)
+       V_flds(2,:) = (/'Sa_v10m', 'Sd_v10m', 'Sa_v10m'/)
+       do n = 1,size(V_flds,1)
+          if (fldchk(is_local%wrap%FBexp(compwav),trim(V_flds(n,3)),rc=rc) .and. &
+                fldchk(is_local%wrap%FBImp(compatm,compatm), trim(V_flds(n,1)),rc=rc)) then
+             call addmap_from(compatm, trim(V_flds(n,1)), compwav, &
+                mapfillv_bilnr, hafs_attr%mapnorm, hafs_attr%atm2wav_smap)
+          end if
+          if (fldchk(is_local%wrap%FBexp(compwav),trim(V_flds(n,3)),rc=rc) .and. &
+                fldchk(is_local%wrap%FBImp(compdat,compdat), trim(V_flds(n,2)),rc=rc)) then
+             call addmap_from(compdat, trim(V_flds(n,2)), compwav, &
+                mapbilnr, hafs_attr%mapnorm, hafs_attr%dat2wav_smap)
+        end if
+       end do
+       deallocate(V_flds)
     end if
 
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
@@ -510,6 +656,13 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
        if (trim(cvalue) /= 'satm') hafs_attr%atm_present = .true.
+    end if
+
+    call NUOPC_CompAttributeGet(gcomp, name='DAT_model', &
+       value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent .and. isSet) then
+       if (trim(cvalue) /= 'satm') hafs_attr%dat_present = .true.
     end if
 
     call NUOPC_CompAttributeGet(gcomp, name='OCN_model', &
@@ -586,6 +739,30 @@ contains
           value=hafs_attr%atm2ocn_vmap, rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
     end if
+    call NUOPC_CompAttributeGet(gcomp, name='dat2ocn_fmapname', &
+       isPresent=isPresent, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(gcomp, name='dat2ocn_fmapname', &
+          value=hafs_attr%dat2ocn_fmap, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+    end if
+    call NUOPC_CompAttributeGet(gcomp, name='dat2ocn_smapname', &
+       isPresent=isPresent, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+    call NUOPC_CompAttributeGet(gcomp, name='dat2ocn_smapname', &
+       value=hafs_attr%dat2ocn_smap, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+    end if
+    call NUOPC_CompAttributeGet(gcomp, name='dat2ocn_vmapname', &
+       isPresent=isPresent, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(gcomp, name='dat2ocn_vmapname', &
+          value=hafs_attr%dat2ocn_vmap, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+    end if
 
     ! to wav
     call NUOPC_CompAttributeGet(gcomp, name='atm2wav_smapname', &
@@ -594,6 +771,14 @@ contains
     if (isPresent) then
        call NUOPC_CompAttributeGet(gcomp, name='atm2wav_smapname', &
           value=hafs_attr%atm2wav_smap, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+    end if
+    call NUOPC_CompAttributeGet(gcomp, name='dat2wav_smapname', &
+       isPresent=isPresent, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+       call NUOPC_CompAttributeGet(gcomp, name='dat2wav_smapname', &
+          value=hafs_attr%dat2wav_smap, rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
     end if
     call NUOPC_CompAttributeGet(gcomp, name='ocn2wav_smapname', &
@@ -643,6 +828,12 @@ contains
           trim(hafs_attr%atm2ocn_smap), ESMF_LOGMSG_INFO)
        call ESMF_LogWrite(trim(subname)//': atm2ocn_vmapname = '// &
           trim(hafs_attr%atm2ocn_vmap), ESMF_LOGMSG_INFO)
+       call ESMF_LogWrite(trim(subname)//': dat2ocn_fmapname = '// &
+          trim(hafs_attr%dat2ocn_fmap), ESMF_LOGMSG_INFO)
+       call ESMF_LogWrite(trim(subname)//': dat2ocn_smapname = '// &
+          trim(hafs_attr%dat2ocn_smap), ESMF_LOGMSG_INFO)
+       call ESMF_LogWrite(trim(subname)//': dat2ocn_vmapname = '// &
+          trim(hafs_attr%dat2ocn_vmap), ESMF_LOGMSG_INFO)
     endif
 
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)

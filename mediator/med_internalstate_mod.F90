@@ -30,7 +30,8 @@ module med_internalstate_mod
   integer, public :: compice = 5
   integer, public :: comprof = 6
   integer, public :: compwav = 7
-  integer, public :: ncomps =  7 ! this will be incremented if the size of compglc is > 0
+  integer, public :: compdat = 8
+  integer, public :: ncomps =  8 ! this will be incremented if the size of compglc is > 0
   integer, public, allocatable :: compglc(:)
 
   ! Generic component name (e.g. atm, ocn...)
@@ -45,6 +46,7 @@ module med_internalstate_mod
   character(len=CS), public :: rof_name = ''
   character(len=CS), public :: wav_name = ''
   character(len=CS), public :: glc_name = ''
+  character(len=CS), public :: dat_name = ''
 
   ! Coupling mode
   character(len=CS), public :: coupling_mode ! valid values are [cesm,nems_orig,nems_frac,nems_orig_data,hafs,nems_frac_aoflux,nems_frac_aoflux_sbs]
@@ -77,7 +79,8 @@ module med_internalstate_mod
   integer , public, parameter :: mapfillv_bilnr    = 15 ! fill value followed by bilinear
   integer , public, parameter :: mapbilnr_nstod    = 16 ! bilinear with nstod extrapolation
   integer , public, parameter :: mapconsf_aofrac   = 17 ! conservative with aofrac normalization (ufs only)
-  integer , public, parameter :: nmappers          = 17
+  integer , public, parameter :: mapfillv_consf    = 18 ! fill value followed by consf
+  integer , public, parameter :: nmappers          = 18
   character(len=*) , public, parameter :: mapnames(nmappers) = &
        (/'bilnr       ',&
          'consf       ',&
@@ -95,7 +98,8 @@ module med_internalstate_mod
          'glc2ocn_liq ',&
          'fillv_bilnr ',&
          'bilnr_nstod ',&
-         'consf_aofrac'/)
+         'consf_aofrac',&
+         'fillv_consf'/)
 
   type, public :: packed_data_type
      integer, allocatable :: fldindex(:) ! size of number of packed fields
@@ -276,6 +280,11 @@ contains
     if (isPresent .and. isSet) then
        if (trim(atm_name) /= 'satm') is_local%wrap%comp_present(compatm) = .true.
     end if
+    call NUOPC_CompAttributeGet(gcomp, name='DAT_model', value=dat_name, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent .and. isSet) then
+       if (trim(dat_name) /= 'satm') is_local%wrap%comp_present(compdat) = .true.
+    end if
     call NUOPC_CompAttributeGet(gcomp, name='LND_model', value=lnd_name, isPresent=isPresent, isSet=isSet, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (isPresent .and. isSet) then
@@ -323,6 +332,7 @@ contains
     allocate(compname(ncomps))
     compname(compmed) = 'med'
     compname(compatm) = 'atm'
+    compname(compdat) = 'dat'
     compname(complnd) = 'lnd'
     compname(compocn) = 'ocn'
     compname(compice) = 'ice'
@@ -346,6 +356,7 @@ contains
        ! Write out model names if they are present
        write(logunit,*)
        if (is_local%wrap%comp_present(compatm)) write(logunit,'(a)') trim(subname) // " atm model= "//trim(atm_name)
+       if (is_local%wrap%comp_present(compdat)) write(logunit,'(a)') trim(subname) // " dat model= "//trim(dat_name)
        if (is_local%wrap%comp_present(complnd)) write(logunit,'(a)') trim(subname) // " lnd model= "//trim(lnd_name)
        if (is_local%wrap%comp_present(compocn)) write(logunit,'(a)') trim(subname) // " ocn model= "//trim(ocn_name)
        if (is_local%wrap%comp_present(compice)) write(logunit,'(a)') trim(subname) // " ice model= "//trim(ice_name)
@@ -421,6 +432,7 @@ contains
 
     ! to land
     med_coupling_allowed(compatm,complnd) = .true.
+    med_coupling_allowed(compdat,complnd) = .true.
     med_coupling_allowed(comprof,complnd) = .true.
     do ns = 1,is_local%wrap%num_icesheets
        med_coupling_allowed(compglc(ns),complnd) = .true.
@@ -428,6 +440,7 @@ contains
 
     ! to ocean
     med_coupling_allowed(compatm,compocn) = .true.
+    med_coupling_allowed(compdat,compocn) = .true.
     med_coupling_allowed(compice,compocn) = .true.
     med_coupling_allowed(comprof,compocn) = .true.
     med_coupling_allowed(compwav,compocn) = .true.
@@ -437,6 +450,7 @@ contains
 
     ! to ice
     med_coupling_allowed(compatm,compice) = .true.
+    med_coupling_allowed(compdat,compice) = .true.
     med_coupling_allowed(compocn,compice) = .true.
     med_coupling_allowed(comprof,compice) = .true.
     med_coupling_allowed(compwav,compice) = .true.
@@ -449,6 +463,7 @@ contains
 
     ! to wave
     med_coupling_allowed(compatm,compwav) = .true.
+    med_coupling_allowed(compdat,compwav) = .true.
     med_coupling_allowed(compocn,compwav) = .true.
     med_coupling_allowed(compice,compwav) = .true.
 

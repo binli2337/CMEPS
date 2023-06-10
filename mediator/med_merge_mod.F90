@@ -22,6 +22,7 @@ module med_merge_mod
 
   public  :: med_merge_auto
   public  :: med_merge_field
+  public  :: hafs_merge_forcing
 
   interface med_merge_auto ; module procedure &
        med_merge_auto_single_fldbun, &
@@ -781,5 +782,94 @@ contains
     name = list(i0:i1)//"   "
 
   end subroutine merge_listGetName
+
+  !===============================================================================
+  subroutine hafs_merge_forcing(FBout, fnameout, &
+                                FBinA, fnameA, wgtA, &
+                                FBinB, fnameB, wgtB, rc)
+
+    use ESMF , only : ESMF_FieldBundle, ESMF_LogWrite
+    use ESMF , only : ESMF_SUCCESS, ESMF_FAILURE, ESMF_LOGMSG_ERROR
+    use ESMF , only : ESMF_LOGMSG_WARNING, ESMF_LOGMSG_INFO
+    use ESMF , only : ESMF_KIND_R8
+
+    ! ----------------------------------------------
+    ! Supports up to a two way merge
+    ! ----------------------------------------------
+
+    ! input/output variabes
+    type(ESMF_FieldBundle) , intent(inout)                 :: FBout
+    character(len=*)       , intent(in)                    :: fnameout
+    type(ESMF_FieldBundle) , intent(in)                    :: FBinA
+    character(len=*)       , intent(in)                    :: fnameA
+    type(ESMF_FieldBundle) , intent(in), optional          :: FBinB
+    character(len=*)       , intent(in), optional          :: fnameB
+    real(R8)               , intent(in), pointer           :: wgtA(:), wgtB(:)
+    integer                , intent(out)                   :: rc
+
+    ! local variables
+    real(R8), pointer          :: dataOut(:)
+    real(R8), pointer          :: dataPtr(:)
+    integer                    :: lb1,ub1,i
+    logical                    :: FBinfound
+    integer                    :: dbrc
+    character(len=*),parameter :: subname='(hafs_merge_forcing)'
+    real(ESMF_KIND_R8), parameter :: fillValue = 9.99e20_ESMF_KIND_R8
+    !---------------------------------------------------
+
+    if (dbug_flag > 10) then
+       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
+    endif
+    rc=ESMF_SUCCESS
+
+    ! check each field has a fieldname passed in
+    if ((present(FBinB) .and. .not.present(fnameB))) then
+
+       call ESMF_LogWrite(trim(subname)//": ERROR fname not present with FBin", &
+            ESMF_LOGMSG_ERROR, line=__LINE__, file=u_FILE_u, rc=dbrc)
+       rc = ESMF_FAILURE
+       return
+    endif
+
+    if (.not. FB_FldChk(FBout, trim(fnameout), rc=rc)) then
+       call ESMF_LogWrite(trim(subname)//": WARNING field not in FBout, skipping merge "//trim(fnameout), &
+            ESMF_LOGMSG_WARNING, line=__LINE__, file=u_FILE_u, rc=dbrc)
+       return
+    endif
+
+    call FB_GetFldPtr(FBout, trim(fnameout), fldptr1=dataOut, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    lb1 = lbound(dataOut,1)
+    ub1 = ubound(dataOut,1)
+
+    dataOut = czero
+
+    ! check that each field passed in actually exists, if not DO NOT do any merge
+    FBinfound = .true.
+    if (present(FBinB)) then
+       if (.not. FB_FldChk(FBinB, trim(fnameB), rc=rc)) FBinfound = .false.
+    endif
+    if (.not. FBinfound) then
+       call ESMF_LogWrite(trim(subname)//": WARNING field not found in FBin, skipping merge "//trim(fnameout), &
+            ESMF_LOGMSG_WARNING, line=__LINE__, file=u_FILE_u, rc=dbrc)
+       return
+    endif
+
+    call FB_GetFldPtr(FBinA, trim(fnameA), fldptr1=dataPtr, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       do i = lb1,ub1
+          dataOut(i) = dataPtr(i)*wgtA(i)
+       enddo
+    call FB_GetFldPtr(FBinB, trim(fnameB), fldptr1=dataPtr, rc=rc)
+       do i = lb1,ub1
+          if(dataPtr(i).lt.fillValue) then 
+             dataOut(i) = dataPtr(i) * wgtB(i)
+          endif
+       enddo
+    if (dbug_flag > 10) then
+       call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
+    endif
+
+  end subroutine hafs_merge_forcing
 
 end module med_merge_mod

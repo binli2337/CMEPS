@@ -86,6 +86,7 @@ contains
     use esmFlds               , only : med_fldList_GetfldListFr, med_fldlist_type
     use esmFlds               , only : med_fld_GetFldInfo, med_fldList_entry_type
     use med_internalstate_mod , only : mapunset, compname
+    use med_internalstate_mod , only : compdat
     use med_internalstate_mod , only : ncomps, nmappers, compname, mapnames, mapfcopy
 
     ! input/output variables
@@ -346,8 +347,9 @@ contains
     use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch, mappatch_uv3d, mapbilnr_uv3d, mapfcopy
     use med_internalstate_mod , only : mapunset, mapnames, nmappers
     use med_internalstate_mod , only : mapnstod, mapnstod_consd, mapnstod_consf, mapnstod_consd
-    use med_internalstate_mod , only : mapfillv_bilnr, mapbilnr_nstod, mapconsf_aofrac
+    use med_internalstate_mod , only : mapfillv_consf, mapfillv_bilnr, mapbilnr_nstod, mapconsf_aofrac
     use med_internalstate_mod , only : compocn, compwav, complnd, compname, compatm
+    use med_internalstate_mod , only : compdat
     use med_internalstate_mod , only : coupling_mode, dststatus_print
     use med_internalstate_mod , only : defaultMasks
     use med_constants_mod     , only : ispval_mask => med_constants_ispval_mask
@@ -413,6 +415,23 @@ contains
           dstMaskValue = ispval_mask
        end if
     end if
+    if (trim(coupling_mode) == 'hafs_mom6') then
+       if (n1 == compdat .and. n2 == compocn) then
+         dstMaskValue = 0
+       endif
+       if (n1 == compatm .and. n2 == compocn) then
+         srcMaskValue = 1
+         dstMaskValue = 0
+       endif
+       if (n1 == compatm .and. n2 == compwav) then
+         srcMaskValue = ispval_mask
+         dstMaskValue = 0
+       endif
+       if (n1 == compocn .and. n2 == compatm) then
+         srcMaskValue = 0
+         dstMaskValue = 1
+       endif
+    end if
     if (trim(coupling_mode) == 'hafs') then
        if (n1 == compatm .and. n2 == compwav) then
           srcMaskValue = ispval_mask
@@ -427,6 +446,10 @@ contains
        if (n1 == compwav .or. n2 == compwav) then
          polemethod = ESMF_POLEMETHOD_NONE ! todo: remove this when ESMF tripolar mapping fix is in place.
        endif
+    end if
+
+    if (trim(coupling_mode) == 'hafs_mom6') then
+       polemethod = ESMF_POLEMETHOD_NONE ! todo: remove this when ESMF tripolar mapping fix is in place.
     end if
 
     ! Create route handle
@@ -463,6 +486,21 @@ contains
           if (chkerr(rc,__LINE__,u_FILE_u)) return
           ldstprint = .true.
        end if
+    else if (mapindex == mapfillv_consf) then
+       if (maintask) then
+          write(logunit,'(A)') trim(subname)//' creating RH '//trim(mapname)//' for '//trim(string)
+       end if
+       call ESMF_FieldRegridStore(fldsrc, flddst, routehandle=routehandles(mapfillv_consf), &
+            srcMaskValues=(/srcMaskValue/), &
+            dstMaskValues=(/dstMaskValue/), &
+            regridmethod=ESMF_REGRIDMETHOD_CONSERVE, &
+            normType=ESMF_NORMTYPE_FRACAREA, &
+            srcTermProcessing=srcTermProcessing_Value, &
+            ignoreDegenerate=.true., &
+            dstStatusField=dststatusfield, &
+            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       ldstprint = .true.
     else if (mapindex == mapfillv_bilnr) then
        if (maintask) then
           write(logunit,'(A)') trim(subname)//' creating RH '//trim(mapname)//' for '//trim(string)
@@ -1264,6 +1302,7 @@ contains
     use med_internalstate_mod , only : mapnstod_consd, mapnstod_consf, mapnstod_consd, mapnstod
     use med_internalstate_mod , only : mapconsd, mapconsf
     use med_internalstate_mod , only : mapfillv_bilnr
+    use med_internalstate_mod , only : mapfillv_consf
     use med_methods_mod       , only : Field_diagnose => med_methods_Field_diagnose
 
     ! input/output variables
@@ -1313,6 +1352,20 @@ contains
           if (chkerr(rc,__LINE__,u_FILE_u)) return
        end if
        call ESMF_FieldRegrid(field_src, field_dst, routehandle=RouteHandles(mapconsf), &
+            termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=checkflag, zeroregion=ESMF_REGION_SELECT, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       if (dbug_flag > 1) then
+          call Field_diagnose(field_dst, lfldname, " --> after consf: ", rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+       end if
+    else if (maptype == mapfillv_consf) then
+       call ESMF_FieldFill(field_dst, dataFillScheme="const", const1=fillValue, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       if (dbug_flag > 1) then
+          call Field_diagnose(field_dst, lfldname, " --> after fillv: ", rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+       end if
+       call ESMF_FieldRegrid(field_src, field_dst, routehandle=RouteHandles(mapfillv_consf), &
             termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=checkflag, zeroregion=ESMF_REGION_SELECT, rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
        if (dbug_flag > 1) then
