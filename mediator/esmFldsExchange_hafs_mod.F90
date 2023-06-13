@@ -215,14 +215,9 @@ contains
        fldname1 = trim(S_flds(1))
        fldname2 = trim(S_flds(2))
        fldname3 = trim(S_flds(3))
-       if(hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-          call addfld_from(compatm, trim(fldname1))
-          call addfld_to(compocn, trim(fldname3))
-       end if
-       if(hafs_attr%dat_present .and. hafs_attr%ocn_present) then
-          call addfld_from(compdat, trim(fldname2))
-          call addfld_to(compocn, trim(fldname3))
-       end if
+       call addfld_from(compatm, trim(fldname1))
+       call addfld_from(compdat, trim(fldname2))
+       call addfld_to(compocn, trim(fldname3))
        deallocate(S_flds)
     end if
 
@@ -264,14 +259,9 @@ contains
           fldname1 = trim(F_flds(n,1))
           fldname2 = trim(F_flds(n,2))
           fldname3 = trim(F_flds(n,3))
-          if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-             call addfld_from(compatm, trim(fldname1))
-             call addfld_to(compocn, trim(fldname3))
-          end if
-          if (hafs_attr%dat_present .and. hafs_attr%ocn_present) then
-             call addfld_from(compdat, trim(fldname2))
-             call addfld_to(compocn, trim(fldname3))
-          end if
+          call addfld_from(compatm, trim(fldname1))
+          call addfld_from(compdat, trim(fldname2))
+          call addfld_to(compocn, trim(fldname3))
        end do
        deallocate(F_flds)
     end if
@@ -300,14 +290,9 @@ contains
        V_flds(1,:) = (/'Sa_u10m', 'Sd_u10m', 'Sa_u10m'/)
        V_flds(2,:) = (/'Sa_v10m', 'Sd_v10m', 'Sa_v10m'/)
        do n = 1,size(V_flds,1)
-          if(hafs_attr%atm_present .and. hafs_attr%wav_present) then
-             call addfld_from(compatm, trim(V_flds(n,1)))
-             call addfld_to(compwav, trim(V_flds(n,3)))
-          end if
-          if(hafs_attr%dat_present .and. hafs_attr%wav_present) then
-             call addfld_from(compdat, trim(V_flds(n,2)))
-             call addfld_to(compwav, trim(V_flds(n,3)))
-          end if
+          call addfld_from(compatm, trim(V_flds(n,1)))
+          call addfld_from(compdat, trim(V_flds(n,2)))
+          call addfld_to(compwav, trim(V_flds(n,3)))
        end do
        deallocate(V_flds)
     end if
