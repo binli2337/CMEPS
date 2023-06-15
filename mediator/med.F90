@@ -832,10 +832,10 @@ contains
     if (trim(coupling_mode) == 'cesm') then
        call esmFldsExchange_cesm(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    else if (trim(coupling_mode(1:4)) == 'nems') then
+    else if (coupling_mode(1:4) == 'nems') then
        call esmFldsExchange_nems(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    else if (trim(coupling_mode(1:4)) == 'hafs') then
+    else if (coupling_mode(1:4) == 'hafs') then
        call esmFldsExchange_hafs(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else
@@ -1820,10 +1820,10 @@ contains
       if (trim(coupling_mode) == 'cesm') then
          call esmFldsExchange_cesm(gcomp, phase='initialize', rc=rc)
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      else if (trim(coupling_mode(1:4)) == 'nems') then
+      else if (coupling_mode(1:4) == 'nems') then
        call esmFldsExchange_nems(gcomp, phase='initialize', rc=rc)
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      else if (trim(coupling_mode(1:4)) == 'hafs') then
+      else if (coupling_mode(1:4) == 'hafs') then
          call esmFldsExchange_hafs(gcomp, phase='initialize', rc=rc)
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
       end if
@@ -1959,7 +1959,7 @@ contains
     !----------------------------------------------------------
     ! Initialize ocean albedos (this is needed for cesm and hafs)
     !----------------------------------------------------------
-    if (trim(coupling_mode(1:5)) /= 'nems_' .or. trim(coupling_mode(1:9)) /= &
+    if (coupling_mode(1:5) /= 'nems_' .or. coupling_mode(1:9) /= &
           'hafs_mom6') then
        if (is_local%wrap%comp_present(compocn) .or. is_local%wrap%comp_present(compatm)) then
           call med_phases_ocnalb_run(gcomp, rc=rc)

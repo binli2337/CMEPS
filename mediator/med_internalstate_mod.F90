@@ -99,7 +99,7 @@ module med_internalstate_mod
          'fillv_bilnr ',&
          'bilnr_nstod ',&
          'consf_aofrac',&
-         'fillv_consf'/)
+         'fillv_consf '/)
 
   type, public :: packed_data_type
      integer, allocatable :: fldindex(:) ! size of number of packed fields
