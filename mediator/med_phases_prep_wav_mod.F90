@@ -19,6 +19,7 @@ module med_phases_prep_wav_mod
   use med_methods_mod       , only : FB_copy       => med_methods_FB_copy
   use med_methods_mod       , only : FB_reset      => med_methods_FB_reset
   use med_methods_mod       , only : FB_check_for_nans => med_methods_FB_check_for_nans
+  use med_methods_mod       , only : FB_GetFldPtr  => med_methods_FB_GetFldPtr
   use esmFlds               , only : med_fldList_GetfldListTo
   use med_internalstate_mod , only : compwav, compdat, compatm, coupling_mode
   use perf_mod              , only : t_startf, t_stopf
