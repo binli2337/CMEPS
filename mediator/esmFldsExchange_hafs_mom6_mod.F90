@@ -70,7 +70,7 @@ contains
     ! Set maptype according to coupling_mode
     if (trim(coupling_mode) == 'hafs_mom6') then
       maptype = mapfillv_bilnr
-      maptype_dat = mapbilnr
+      maptype_dat = mapfcopy
     end if
     write(msgString,'(A,i6,A)') trim(subname)//': maptype is ',maptype,', '//mapnames(maptype)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
