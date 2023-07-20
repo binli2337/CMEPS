@@ -60,10 +60,10 @@ module MED
   public  SetServices
   public  SetVM
   private InitializeP0
-  private InitializeIPDv03p1 ! advertise fields
-  private InitializeIPDv03p3 ! realize connected Fields with transfer action "provide"
-  private InitializeIPDv03p4 ! optionally modify the decomp/distr of transferred Grid/Mesh
-  private InitializeIPDv03p5 ! realize all Fields with transfer action "accept"
+  private AdvertiseFields ! advertise fields
+  private RealizeFieldsWithTransferProvided ! realize connected Fields with transfer action "provide"
+  private ModifyDecompofMesh ! optionally modify the decomp/distr of transferred Grid/Mesh
+  private RealizeFieldsWithTransferAccept ! realize all Fields with transfer action "accept"
   private DataInitialize     ! finish initialization and resolve data dependencies
   private SetRunClock
   private med_meshinfo_create
@@ -133,7 +133,7 @@ contains
     integer, intent(out) :: rc
 
     ! local variables
-    character(len=*),parameter :: subname=' (SetServices) '
+    character(len=*), parameter :: subname = '('//__FILE__//':SetServices)'
     !-----------------------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -165,7 +165,7 @@ contains
     ! The valid values are: [will provide, can provide, cannot provide]
 
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-         phaseLabelList=(/"IPDv03p1"/), userRoutine=InitializeIPDv03p1, rc=rc)
+         phaseLabelList=(/"IPDv03p1"/), userRoutine=AdvertiseFields, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------------------
@@ -173,7 +173,7 @@ contains
     !------------------
 
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-         phaseLabelList=(/"IPDv03p3"/), userRoutine=InitializeIPDv03p3, rc=rc)
+         phaseLabelList=(/"IPDv03p3"/), userRoutine=RealizeFieldsWithTransferProvided, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------------------
@@ -181,7 +181,7 @@ contains
     !------------------
 
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-         phaseLabelList=(/"IPDv03p4"/), userRoutine=InitializeIPDv03p4, rc=rc)
+         phaseLabelList=(/"IPDv03p4"/), userRoutine=ModifyDecompofMesh, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------------------
@@ -189,7 +189,7 @@ contains
     !------------------
 
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-         phaseLabelList=(/"IPDv03p5"/), userRoutine=InitializeIPDv03p5, rc=rc)
+         phaseLabelList=(/"IPDv03p5"/), userRoutine=RealizeFieldsWithTransferAccept, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !------------------
@@ -596,10 +596,12 @@ contains
     character(len=CX) :: diro
     character(len=CX) :: logfile
     character(len=CX) :: diagfile
-    character(len=*),parameter :: subname=' (InitializeP0) '
+    character(len=*), parameter :: subname = '('//__FILE__//':InitializeP0)'
     !-----------------------------------------------------------
 
     rc = ESMF_SUCCESS
+    call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
+
     if (profile_memory) call ESMF_VMLogMemInfo("Entering "//trim(subname))
     call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -675,7 +677,7 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine InitializeIPDv03p1(gcomp, importState, exportState, clock, rc)
+  subroutine AdvertiseFields(gcomp, importState, exportState, clock, rc)
 
     ! Mediator advertises its import and export Fields and sets the
     ! TransferOfferGeomObject Attribute.
@@ -688,6 +690,7 @@ contains
     use NUOPC , only : NUOPC_CompAttributeGet, NUOPC_CompAttributeSet, NUOPC_CompAttributeAdd
     use esmFlds, only : med_fldlist_init1, med_fld_GetFldInfo, med_fldList_entry_type
     use med_phases_history_mod, only : med_phases_history_init
+    use med_methods_mod       , only : mediator_checkfornans  
 
     ! input/output variables
     type(ESMF_GridComp)  :: gcomp
@@ -706,7 +709,7 @@ contains
     type(med_fldlist_type), pointer :: fldListFr, fldListTo
     type(med_fldList_entry_type), pointer :: fld
     integer             :: stat
-    character(len=*),parameter :: subname=' (Advertise Fields) '
+    character(len=*), parameter :: subname = '('//__FILE__//':AdvertiseFields)'
     !-----------------------------------------------------------
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
@@ -952,14 +955,32 @@ contains
        end if
     end do ! end of ncomps loop
 
+    ! Should mediator check for NaNs?
+    call NUOPC_CompAttributeGet(gcomp, name="check_for_nans", value=cvalue, isPresent=isPresent, isSet=isSet, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if(isPresent .and. isSet) then
+       read(cvalue, *) mediator_checkfornans       
+    else
+       mediator_checkfornans = .false.
+    endif
+    if(maintask) then
+       write(logunit,*) ' check_for_nans is ',mediator_checkfornans
+       if(mediator_checkfornans) then
+          write(logunit,*) ' Fields will be checked for NaN values when passed from mediator to component'
+       else
+          write(logunit,*) ' Fields will NOT be checked for NaN values when passed from mediator to component'
+       endif
+    endif
+
+
     if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
-  end subroutine InitializeIPDv03p1
+  end subroutine AdvertiseFields
 
   !-----------------------------------------------------------------------------
 
-  subroutine InitializeIPDv03p3(gcomp, importState, exportState, clock, rc)
+  subroutine RealizeFieldsWithTransferProvided(gcomp, importState, exportState, clock, rc)
 
     ! Realize connected Fields with transfer action "provide"
 
@@ -979,7 +1000,7 @@ contains
     type(InternalState)        :: is_local
     type(ESMF_VM)              :: vm
     integer                    :: n
-    character(len=*),parameter :: subname=' (Realize Fields with Transfer Provide) '
+    character(len=*), parameter :: subname = '('//__FILE__//':RealizeFieldsWithTransferProvided)'
     !-----------------------------------------------------------
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
@@ -1019,11 +1040,11 @@ contains
     if (profile_memory) call ESMF_VMLogMemInfo("Leaving "//trim(subname))
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
-  end subroutine InitializeIPDv03p3
+  end subroutine RealizeFieldsWithTransferProvided
 
   !-----------------------------------------------------------------------------
 
-  subroutine InitializeIPDv03p4(gcomp, importState, exportState, clock, rc)
+  subroutine ModifyDecompofMesh(gcomp, importState, exportState, clock, rc)
 
     ! Optionally modify the decomp/distr of transferred Grid/Mesh
 
@@ -1040,7 +1061,8 @@ contains
     ! local variables
     type(InternalState) :: is_local
     integer :: n1
-    character(len=*),parameter :: subname=' (Modify Decomp of Mesh/Grid) '
+    character(len=*), parameter :: subname = '('//__FILE__//':ModifyDecompofMesh)'
+
     !-----------------------------------------------------------
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
@@ -1339,11 +1361,11 @@ contains
 
     end subroutine realizeConnectedGrid
 
-  end subroutine InitializeIPDv03p4
+  end subroutine ModifyDecompofMesh
 
   !-----------------------------------------------------------------------------
 
-  subroutine InitializeIPDv03p5(gcomp, importState, exportState, clock, rc)
+  subroutine RealizeFieldsWithTransferAccept(gcomp, importState, exportState, clock, rc)
 
     use ESMF , only : ESMF_GridComp, ESMF_State, ESMF_Clock, ESMF_LogWrite
     use ESMF , only : ESMF_SUCCESS, ESMF_LOGMSG_INFO, ESMF_StateIsCreated
@@ -1368,7 +1390,8 @@ contains
     ! local variables
     type(InternalState) :: is_local
     integer             :: n1
-    character(len=*),parameter  :: subname=' (Realize Fields with Transfer Accept) '
+    character(len=*), parameter :: subname = '('//__FILE__//':RealizeFieldsWithTransferAccept)'
+
     !-----------------------------------------------------------
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
@@ -1440,7 +1463,7 @@ contains
       integer, allocatable        :: ungriddedLBound(:), ungriddedUBound(:)
       logical                     :: isPresent
       logical                     :: meshcreated
-      character(len=*),parameter  :: subname=' (Complete Field Initialization) '
+      character(len=*), parameter :: subname = '('//__FILE__//':completeFieldInitialization)'
       !-----------------------------------------------------------
 
       call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
@@ -1550,7 +1573,7 @@ contains
 
     end subroutine completeFieldInitialization
 
-  end subroutine InitializeIPDv03p5
+  end subroutine RealizeFieldsWithTransferAccept
 
   !-----------------------------------------------------------------------------
 
@@ -1633,7 +1656,7 @@ contains
     logical,save                       :: first_call = .true.
     real(r8)                           :: real_nx, real_ny
     character(len=CX)                  :: msgString
-    character(len=*), parameter        :: subname=' (Data Initialization) '
+    character(len=*), parameter :: subname = '('//__FILE__//':DataInitialize)'
     !-----------------------------------------------------------
 
     call ESMF_LogWrite(trim(subname)//": called", ESMF_LOGMSG_INFO)
@@ -2249,8 +2272,8 @@ contains
     character(len=CL)       :: stop_option
     integer                 :: stop_n, stop_ymd
     logical, save           :: stopalarmcreated=.false.
+    character(len=*), parameter :: subname = '('//__FILE__//':SetRunClock)'
 
-    character(len=*),parameter :: subname=' (Set Run Clock) '
     !-----------------------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -2335,7 +2358,7 @@ contains
     real(r8), allocatable :: ownedElemCoords(:)
     real(r8), pointer     :: dataptr(:)
     integer               :: n, dimcount, fieldcount
-    character(len=*),parameter :: subname=' (module_MED:med_meshinfo_create) '
+    character(len=*), parameter :: subname = '('//__FILE__//':med_meshinfo_create)'
     !-------------------------------------------------------------------------------
 
     rc= ESMF_SUCCESS
@@ -2408,7 +2431,7 @@ contains
     type(ESMF_ArrayBundle) :: arrayBundle
     integer                :: tileCount
     logical                :: isPresent
-    character(len=*), parameter :: subname=' (Grid Write) '
+    character(len=*), parameter :: subname = '('//__FILE__//':med_grid_write)'
     !-------------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS

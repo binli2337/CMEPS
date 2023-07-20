@@ -20,6 +20,7 @@ module med_phases_prep_ocn_mod
   use med_methods_mod       , only : FB_average    => med_methods_FB_average
   use med_methods_mod       , only : FB_copy       => med_methods_FB_copy
   use med_methods_mod       , only : FB_reset      => med_methods_FB_reset
+  use med_methods_mod       , only : FB_check_for_nans => med_methods_FB_check_for_nans
   use esmFlds               , only : med_fldList_GetfldListTo, med_fldlist_type
   use med_internalstate_mod , only : compocn, compatm, compice, coupling_mode
   use med_internalstate_mod , only : compdat
@@ -302,6 +303,10 @@ contains
        call FB_copy(is_local%wrap%FBExp(compocn), is_local%wrap%FBExpAccumOcn, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
+       ! Check for nans in fields export to ocn
+       call FB_check_for_nans(is_local%wrap%FBExp(compocn), maintask, logunit, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
        ! zero accumulator
        is_local%wrap%ExpAccumOcnCnt = 0
        call FB_reset(is_local%wrap%FBExpAccumOcn, value=czero, rc=rc)
@@ -379,7 +384,6 @@ contains
 
     rc = ESMF_SUCCESS
 
-    call t_startf('MED:'//subname)
     if (dbug_flag > 20) then
        call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
     end if
@@ -389,6 +393,17 @@ contains
     nullify(is_local%wrap)
     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    ! Check that the necessary export field is present
+    if ( .not. FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_swnet', rc=rc) .and. &
+         .not. (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_swnet_vdr', rc=rc) .and. &
+         FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_swnet_vdf', rc=rc) .and. &
+         FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_swnet_idr', rc=rc) .and. &
+         FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_swnet_idf', rc=rc))) then
+       return
+    end if
+
+    call t_startf('MED:'//subname)
 
     !---------------------------------------
     ! Compute netsw for ocean
@@ -635,7 +650,6 @@ contains
     real(R8), pointer   :: ifrac(:)
     real(R8), pointer   :: ofrac(:)
     integer             :: lsize
-    real(R8)        , parameter    :: const_lhvap = 2.501e6_R8  ! latent heat of evaporation ~ J/kg
     character(len=*), parameter    :: subname='(med_phases_prep_ocn_custom_nems)'
     !---------------------------------------
 
@@ -664,9 +678,9 @@ contains
     if (trim(coupling_mode) == 'nems_orig' .or. &
         trim(coupling_mode) == 'nems_frac' .or. &
         trim(coupling_mode) == 'nems_frac_aoflux_sbs') then
-       customwgt(:) = -ofrac(:) / const_lhvap
+       customwgt(:) = -ofrac(:)
        call med_merge_field(is_local%wrap%FBExp(compocn),      'Faxa_evap', &
-            FBinA=is_local%wrap%FBImp(compatm,compocn), fnameA='Faxa_lat' , wgtA=customwgt, rc=rc)
+            FBinA=is_local%wrap%FBImp(compatm,compocn), fnameA='Faxa_evap' , wgtA=customwgt, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
        customwgt(:) = -ofrac(:)
