@@ -493,7 +493,7 @@ contains
        end if
        if (fldchk(is_local%wrap%FBExp(compocn),trim(fldname3),rc=rc) .and. &
              fldchk(is_local%wrap%FBImp(compdat,compdat),trim(fldname2),rc=rc)) then
-             call addmap_from(compdat, trim(fldname2), compocn, mapbilnr, & 
+             call addmap_from(compdat, trim(fldname2), compocn, mapfcopy, & 
                 hafs_attr%mapnorm, hafs_attr%dat2ocn_smap)
       end if
        deallocate(S_flds)
@@ -553,7 +553,7 @@ contains
              fldchk(is_local%wrap%FBImp(compdat,compdat),trim(fldname2),rc=rc) &
              ) then
              call addmap_from(compdat, trim(fldname2), compocn, &
-                 mapbilnr, hafs_attr%mapnorm, hafs_attr%dat2ocn_smap)
+                 mapfcopy, hafs_attr%mapnorm, hafs_attr%dat2ocn_smap)
           end if
        end do
        deallocate(F_flds)
