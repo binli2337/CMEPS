@@ -161,8 +161,10 @@ contains
     ! to atm: surface temperatures from ocn
     ! ---------------------------------------------------------------------
     if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-      allocate(S_flds(1))
-      S_flds = (/'So_t'/) ! sea_surface_temperature
+      allocate(S_flds(3))
+      S_flds = (/'So_t', & ! sea_surface_temperature
+                'So_u',  & ! sea_surface_zoanl_current
+                'So_v'/)   ! sea_surface_meridional_current
       do n = 1,size(S_flds)
          fldname = trim(S_flds(n))
          call addfld_from(compocn, trim(fldname))
@@ -414,8 +416,10 @@ contains
     ! to atm: sea surface temperature
     ! ---------------------------------------------------------------------
     if (hafs_attr%atm_present .and. hafs_attr%ocn_present) then
-      allocate(S_flds(1))
-      S_flds = (/'So_t'/) ! sea_surface_temperature
+      allocate(S_flds(3))
+      S_flds = (/'So_t', & ! sea_surface_temperature
+                'So_u',  & ! sea_surface_zoanl_current
+                'So_v'/)   ! sea_surface_meridional_current
       do n = 1,size(S_flds)
          fldname = trim(S_flds(n))
          if (fldchk(is_local%wrap%FBExp(compatm),trim(fldname),rc=rc) .and. &
