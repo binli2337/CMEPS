@@ -53,7 +53,7 @@ contains
     character(len=CX)   :: msgString
     character(len=CL)   :: cvalue
     character(len=CS)   :: fldname
-    character(len=CS), allocatable :: flds(:), wflds(:), oflds(:), aflds(:), dflds(:)
+    character(len=CS), allocatable ::  S_flds(:), wflds(:), oflds(:), aflds(:), dflds(:)
     character(len=*) , parameter   :: subname='(esmFldsExchange_hafs_mom6)'
     !--------------------------------------
 
@@ -113,19 +113,30 @@ contains
     ! FIELDS TO ATMOSPHERE (compatm)
     !=====================================================================
 
-    ! to atm: unmerged surface temperatures from ocn
+    ! to atm: unmerged surface temperatures, and surface currents from ocn
+    allocate(S_flds(3))
+    S_flds = (/'So_t', & ! sea_surface_temperature
+               'So_u', & ! surface zonal current
+               'So_v'/)  ! surface meridional current
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
-          call addfld_from(compocn, 'So_t')
-          call addfld_to(compatm, 'So_t')
+          do n=1,size(S_flds)
+             fldname = trim(S_flds(n))
+             call addfld_from(compocn, fldname)
+             call addfld_to(compatm, fldname)
+          end do
        end if
     else
-       if ( fldchk(is_local%wrap%FBexp(compatm)        , 'So_t', rc=rc) .and. &
-            fldchk(is_local%wrap%FBImp(compocn,compocn), 'So_t', rc=rc)) then
-          call addmap_from(compocn, 'So_t', compatm, maptype, 'none', 'unset')
-          call addmrg_to(compatm, 'So_t', mrg_from=compocn, mrg_fld='So_t', mrg_type='copy')
-       end if
+       do n=1,size(S_flds)
+          fldname = trim(S_flds(n))
+          if ( fldchk(is_local%wrap%FBexp(compatm)      , fldname, rc=rc) .and. &
+             fldchk(is_local%wrap%FBImp(compocn,compocn), fldname, rc=rc)) then
+             call addmap_from(compocn, fldname, compatm, maptype, 'none', 'unset')
+             call addmrg_to(compatm, fldname, mrg_from=compocn, mrg_fld=fldname, mrg_type='copy')
+          end if
+       end do
     end if
+    deallocate(S_flds)
 
     ! to atm: surface roughness length from wav
     if (phase == 'advertise') then
@@ -262,7 +273,6 @@ contains
     dflds = (/'Sd_u10m', 'Sd_u10m'/)
     wflds = (/'Sa_u10m', 'Sa_u10m'/)
     do n = 1,size(flds)
-       !fldname = trim(flds(n))
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compwav) &
           .and. is_local%wrap%comp_present(compdat)) then
