@@ -53,7 +53,7 @@ contains
     character(len=CX)   :: msgString
     character(len=CL)   :: cvalue
     character(len=CS)   :: fldname
-    character(len=CS), allocatable ::  S_flds(:), wflds(:), oflds(:), aflds(:), dflds(:)
+    character(len=CS), allocatable ::  flds(:), wflds(:), oflds(:), aflds(:), dflds(:)
     character(len=*) , parameter   :: subname='(esmFldsExchange_hafs_mom6)'
     !--------------------------------------
 
@@ -114,21 +114,21 @@ contains
     !=====================================================================
 
     ! to atm: unmerged surface temperatures, and surface currents from ocn
-    allocate(S_flds(3))
-    S_flds = (/'So_t', & ! sea_surface_temperature
+    allocate(flds(3))
+    flds = (/'So_t', & ! sea_surface_temperature
                'So_u', & ! surface zonal current
                'So_v'/)  ! surface meridional current
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
-          do n=1,size(S_flds)
-             fldname = trim(S_flds(n))
+          do n=1,size(flds)
+             fldname = trim(flds(n))
              call addfld_from(compocn, fldname)
              call addfld_to(compatm, fldname)
           end do
        end if
     else
-       do n=1,size(S_flds)
-          fldname = trim(S_flds(n))
+       do n=1,size(flds)
+          fldname = trim(flds(n))
           if ( fldchk(is_local%wrap%FBexp(compatm)      , fldname, rc=rc) .and. &
              fldchk(is_local%wrap%FBImp(compocn,compocn), fldname, rc=rc)) then
              call addmap_from(compocn, fldname, compatm, maptype, 'none', 'unset')
@@ -136,7 +136,7 @@ contains
           end if
        end do
     end if
-    deallocate(S_flds)
+    deallocate(flds)
 
     ! to atm: surface roughness length from wav
     if (phase == 'advertise') then
