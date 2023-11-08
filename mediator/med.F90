@@ -48,7 +48,7 @@ module MED
   use esmFlds                  , only : med_fldList_GetNumFlds, med_fldList_GetFldNames, med_fldList_GetFldInfo
   use esmFlds                  , only : med_fldList_Document_Mapping, med_fldList_Document_Merging
   use esmFlds                  , only : med_fldList_GetfldListFr, med_fldList_GetfldListTo, med_fldList_Realize
-  use esmFldsExchange_nems_mod , only : esmFldsExchange_nems
+  use esmFldsExchange_ufs_mod  , only : esmFldsExchange_ufs
   use esmFldsExchange_cesm_mod , only : esmFldsExchange_cesm
   use esmFldsExchange_hafs_mod , only : esmFldsExchange_hafs
   use esmFldsExchange_hafs_mom6_mod , only : esmFldsExchange_hafs_mom6
@@ -851,8 +851,8 @@ contains
     if (trim(coupling_mode) == 'cesm') then
        call esmFldsExchange_cesm(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    else if (trim(coupling_mode(1:4)) == 'nems') then
-       call esmFldsExchange_nems(gcomp, phase='advertise', rc=rc)
+    else if (trim(coupling_mode(1:3)) == 'ufs') then
+       call esmFldsExchange_ufs(gcomp, phase='advertise', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     else if (trim(coupling_mode) == 'hafs_mom6') then
        call esmFldsExchange_hafs_mom6(gcomp, phase='advertise', rc=rc)
@@ -1841,8 +1841,8 @@ contains
       if (trim(coupling_mode) == 'cesm') then
          call esmFldsExchange_cesm(gcomp, phase='initialize', rc=rc)
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      else if (trim(coupling_mode(1:4)) == 'nems') then
-         call esmFldsExchange_nems(gcomp, phase='initialize', rc=rc)
+      else if (trim(coupling_mode(1:3)) == 'ufs') then
+         call esmFldsExchange_ufs(gcomp, phase='initialize', rc=rc)
          if (ChkErr(rc,__LINE__,u_FILE_u)) return
       else if (trim(coupling_mode) == 'hafs_mom6') then
          call esmFldsExchange_hafs_mom6(gcomp, phase='initialize', rc=rc)
