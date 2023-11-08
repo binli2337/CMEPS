@@ -699,10 +699,10 @@ contains
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
 !BL
-!       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Sa_pslv',  &
-!            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Sd_pslv', wgtA=wgtp01, &
-!            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Sa_pslv', wgtB=wgtp01, rc=rc)
-!       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Sa_pslv',  &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Sd_pslv', wgtA=wgtp01, &
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Sa_pslv', wgtB=wgtp01, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
 !BL
        call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_rain',  &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_rain', wgtA=wgtp01, &
