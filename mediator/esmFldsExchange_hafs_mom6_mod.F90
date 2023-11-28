@@ -116,8 +116,8 @@ contains
     ! to atm: unmerged surface temperatures, and surface currents from ocn
     allocate(flds(3))
     flds = (/'So_t', & ! sea_surface_temperature
-               'So_u', & ! surface zonal current
-               'So_v'/)  ! surface meridional current
+             'So_u', & ! surface zonal current
+             'So_v'/)  ! surface meridional current
     if (phase == 'advertise') then
        if (is_local%wrap%comp_present(compocn) .and. is_local%wrap%comp_present(compatm)) then
           do n=1,size(flds)
