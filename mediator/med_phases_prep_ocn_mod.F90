@@ -648,6 +648,7 @@ contains
     real(R8), pointer   :: wgtm01(:)
     real(R8), pointer   :: customwgt1(:)
     real(R8), pointer   :: customwgt2(:)
+    real(R8), pointer   :: customwgt3(:)
     real(R8), pointer   :: ifrac(:)
     real(R8), pointer   :: ofrac(:)
     integer             :: lsize
@@ -677,19 +678,21 @@ contains
     lsize = size(ofrac)
     allocate(customwgt1(lsize))
     allocate(customwgt2(lsize))
+    allocate(customwgt3(lsize))
     allocate(wgtm01(lsize))
     allocate(wgtp01(lsize))
        wgtp01(:) = 1.0_R8
        wgtm01(:) = -1.0_R8
        customwgt1(:) = 0.94_R8
-       customwgt2(:) = -1.0_R8/const_lhvap
+       customwgt2(:) = 1.0_R8/const_lhvap
+       customwgt3(:) = -1.0_R8/const_lhvap
     if (maintask) then
        write(logunit,'(a)') trim(subname)//' lsize= '
        write(logunit,'(i10)')  lsize
     end if
     if (trim(coupling_mode) == 'hafs_mom6' ) then
-       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Faxa_evap', &
-            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_lat' , wgtA=customwgt2, &
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_evap', &
+            FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_lat' , wgtA=customwgt3, &
             FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_lat', wgtB=customwgt2, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
@@ -704,7 +707,7 @@ contains
             FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Sa_pslv', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 !BL
-       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_rain',  &
+       call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Faxa_rain',  &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_rain', wgtA=wgtp01, &
             FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_rain', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -717,17 +720,17 @@ contains
 
        call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_sen',  &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_sen', wgtA=wgtm01, &
-            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_sen', wgtB=wgtm01, rc=rc)
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_sen', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
        call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_taux', &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_taux', wgtA=wgtm01, &
-            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_taux', wgtB=wgtm01, rc=rc)
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_taux', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
        call hafs_merge_forcing(is_local%wrap%FBExp(compocn),   'Foxx_tauy', &
             FBinA=is_local%wrap%FBImp(compdat,compocn), fnameA='Faxd_tauy', wgtA=wgtm01, &
-            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_tauy', wgtB=wgtm01, rc=rc)
+            FBinB=is_local%wrap%FBImp(compatm,compocn), fnameB='Faxa_tauy', wgtB=wgtp01, rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
     end if
 
@@ -755,6 +758,7 @@ contains
     deallocate(wgtp01)
     deallocate(customwgt1)
     deallocate(customwgt2)
+    deallocate(customwgt3)
 
     if (dbug_flag > 20) then
        call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
