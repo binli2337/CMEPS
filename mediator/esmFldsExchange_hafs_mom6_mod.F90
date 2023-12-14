@@ -210,7 +210,7 @@ contains
     allocate(aflds(4))
     aflds = (/'Faxa_rain', 'Faxa_lwnet', 'Faxa_sen', 'Faxa_lat'/)
     dflds = (/'Faxd_rain', 'Faxd_lwnet', 'Faxd_sen', 'Faxd_lat'/)
-    oflds = (/'Foxx_rain', 'Foxx_lwnet', 'Foxx_sen', 'Faxa_evap'/)
+    oflds = (/'Faxa_rain', 'Foxx_lwnet', 'Foxx_sen', 'Foxx_evap'/)
     do n = 1,size(oflds)
        if (phase == 'advertise') then
           if (is_local%wrap%comp_present(compatm) .and. is_local%wrap%comp_present(compocn) &
