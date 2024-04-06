@@ -280,6 +280,18 @@ contains
        end if
     end if
 
+    ! to ocn: partitioned stokes drift from wav
+    if (hafs_attr%wav_present .and. hafs_attr%ocn_present) then
+      allocate(S_flds(2))
+      S_flds = (/'Sw_pstokes_x', 'Sw_pstokes_y'/)
+      do n = 1,size(S_flds)
+         fldname = trim(S_flds(n))
+         call addfld_from(compwav , fldname)
+         call addfld_to(compocn   , fldname)
+      end do
+      deallocate(S_flds)
+    end if
+
     !=====================================================================
     ! FIELDS TO WAVE (compwav)
     !=====================================================================
@@ -294,6 +306,22 @@ contains
           fldname = trim(S_flds(n))
           call addfld_from(compatm, trim(fldname))
           call addfld_to(compwav, trim(fldname))
+       end do
+       deallocate(S_flds)
+    end if
+
+    ! ---------------------------------------------------------------------
+    ! to wav: states from ocn
+    ! - zonal sea water velocity from ocn
+    ! - meridional sea water velocity from ocn
+    ! ---------------------------------------------------------------------
+    if (hafs_attr%ocn_present .and. hafs_attr%wav_present) then
+       allocate(S_flds(2))
+       S_flds = (/'So_u', 'So_v'/)
+       do n = 1,size(S_flds)
+          fldname = trim(S_flds(n))
+          call addfld_from(compocn , fldname)
+          call addfld_to(compwav   , fldname)
        end do
        deallocate(S_flds)
     end if
@@ -351,7 +379,7 @@ contains
     use med_internalstate_mod , only : InternalState
     use med_internalstate_mod , only : mapbilnr, mapconsf, mapconsd, mappatch
     use med_internalstate_mod , only : mapfcopy, mapnstod, mapnstod_consd
-    use med_internalstate_mod , only : mapfillv_bilnr
+    use med_internalstate_mod , only : mapfillv_bilnr,mapbilnr_nstod
     use med_internalstate_mod , only : mapnstod_consf
     use esmFlds               , only : addmap_from => med_fldList_addmap_from
     use esmFlds               , only : addmrg_to   => med_fldList_addmrg_to
@@ -461,7 +489,7 @@ contains
               fldchk(is_local%wrap%FBImp(compwav,compwav),trim(fldname),rc=rc) &
              ) then
              call addmap_from(compwav, trim(fldname), compatm, &
-                  mapfillv_bilnr, hafs_attr%mapnorm, hafs_attr%wav2atm_smap)
+                  mapbilnr_nstod, hafs_attr%mapnorm, hafs_attr%wav2atm_smap)
              call addmrg_to(compatm, trim(fldname), &
                   mrg_from=compwav, mrg_fld=trim(fldname), mrg_type='copy')
           end if
@@ -569,6 +597,21 @@ contains
        end if
     end if
 
+    ! ---------------------------------------------------------------------
+    ! to ocn: partitioned stokes drift from wav
+    ! ---------------------------------------------------------------------
+    allocate(S_flds(2))
+    S_flds = (/'Sw_pstokes_x', 'Sw_pstokes_y'/)
+    do n = 1,size(S_flds)
+       fldname = trim(S_flds(n))
+       if ( fldchk(is_local%wrap%FBexp(compocn)        , fldname, rc=rc) .and. &
+            fldchk(is_local%wrap%FBImp(compwav,compwav), fldname, rc=rc)) then
+           call addmap_from(compwav, fldname, compocn, mapbilnr_nstod, 'one', 'unset')
+           call addmrg_to(compocn, fldname, mrg_from=compwav, mrg_fld=fldname, mrg_type='copy')
+       end if
+    end do
+    deallocate(S_flds)
+
     !=====================================================================
     ! FIELDS TO WAVE (compwav)
     !=====================================================================
@@ -592,6 +635,23 @@ contains
       end do
       deallocate(S_flds)
     end if
+
+    ! ---------------------------------------------------------------------
+    ! to wav: states from ocn
+    ! - zonal sea water velocity from ocn
+    ! - meridional sea water velocity from ocn
+    ! ---------------------------------------------------------------------
+    allocate(S_flds(2))
+    S_flds = (/'So_u', 'So_v'/)
+    do n = 1,size(S_flds)
+       fldname = trim(S_flds(n))
+       if ( fldchk(is_local%wrap%FBexp(compwav)        , fldname, rc=rc) .and. &
+            fldchk(is_local%wrap%FBImp(compocn,compocn), fldname, rc=rc)) then
+          call addmap_from(compocn, fldname, compwav, mapbilnr_nstod , 'one', 'unset')
+          call addmrg_to(compwav, fldname, mrg_from=compocn, mrg_fld=fldname, mrg_type='copy')
+       end if
+    end do
+    deallocate(S_flds)
 
     call ESMF_LogWrite(trim(subname)//": done", ESMF_LOGMSG_INFO)
 
