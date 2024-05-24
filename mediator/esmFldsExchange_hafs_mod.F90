@@ -606,7 +606,8 @@ contains
        fldname = trim(S_flds(n))
        if ( fldchk(is_local%wrap%FBexp(compocn)        , fldname, rc=rc) .and. &
             fldchk(is_local%wrap%FBImp(compwav,compwav), fldname, rc=rc)) then
-           call addmap_from(compwav, fldname, compocn, mapbilnr_nstod, 'one', 'unset')
+           !call addmap_from(compwav, fldname, compocn, mapbilnr_nstod, 'one', 'unset')
+           call addmap_from(compwav, fldname, compocn, mapfillv_bilnr, 'one', 'unset')
            call addmrg_to(compocn, fldname, mrg_from=compwav, mrg_fld=fldname, mrg_type='copy')
        end if
     end do
