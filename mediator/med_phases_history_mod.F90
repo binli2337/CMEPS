@@ -357,11 +357,13 @@ contains
              end if
              if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_ocnalb_a,rc=rc)) then
                 call med_io_write(io_file, is_local%wrap%FBMed_ocnalb_a, whead(m), wdata(m), &
-                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_alb_atm', rc=rc)
+                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_alb_atm', &
+                     ntile=is_local%wrap%ntile(compatm), rc=rc)
              end if
              if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_aoflux_a,rc=rc)) then
                 call med_io_write(io_file, is_local%wrap%FBMed_aoflux_a, whead(m), wdata(m), &
-                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_aoflux_atm', rc=rc)
+                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_aoflux_atm', &
+                     ntile=is_local%wrap%ntile(compatm), rc=rc)
              end if
 
           end do ! end of loop over whead/wdata m index phases
@@ -495,7 +497,8 @@ contains
              end if
              if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_aoflux_a,rc=rc)) then
                 call med_io_write(instfiles(compmed)%io_file, is_local%wrap%FBMed_aoflux_a, whead(m), wdata(m), &
-                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_aoflux_atm', rc=rc)
+                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_aoflux_atm', &
+                     ntile=is_local%wrap%ntile(compatm), rc=rc)
              end if
 
              ! If appropriate - write ocn albedos computed in mediator
@@ -505,7 +508,8 @@ contains
              end if
              if (ESMF_FieldBundleIsCreated(is_local%wrap%FBMed_ocnalb_a,rc=rc)) then
                 call med_io_write(instfiles(compmed)%io_file, is_local%wrap%FBMed_ocnalb_a, whead(m), wdata(m), &
-                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_alb_atm', rc=rc)
+                     is_local%wrap%nx(compatm), is_local%wrap%ny(compatm), nt=1, pre='Med_alb_atm', &
+                     ntile=is_local%wrap%ntile(compatm), rc=rc)
              end if
           end do ! end of loop over m
 
@@ -519,19 +523,20 @@ contains
   end subroutine med_phases_history_write_med
 
   !===============================================================================
-  subroutine med_phases_history_write_lnd2glc(gcomp, fldbun, rc)
+  subroutine med_phases_history_write_lnd2glc(gcomp, fldbun_lnd, rc, fldbun_glc)
 
-    ! Write yearly average of lnd -> glc fields
+    ! Write yearly average of lnd -> glc fields on both land and glc grids
 
-    use med_internalstate_mod, only : complnd
+    use med_internalstate_mod, only : complnd, compglc
     use med_constants_mod , only : SecPerDay => med_constants_SecPerDay
     use med_io_mod        , only : med_io_write_time, med_io_define_time
     use med_io_mod        , only : med_io_date2yyyymmdd, med_io_sec2hms, med_io_ymd2date
 
     ! input/output variables
     type(ESMF_GridComp)    , intent(in)  :: gcomp
-    type(ESMF_FieldBundle) , intent(in)  :: fldbun
+    type(ESMF_FieldBundle) , intent(in)  :: fldbun_lnd
     integer                , intent(out) :: rc
+    type(ESMF_FieldBundle) , intent(in), optional :: fldbun_glc(:)
 
     ! local variables
     type(file_desc_t)       :: io_file
@@ -550,7 +555,7 @@ contains
     real(r8)                :: time_val     ! time coordinate output
     real(r8)                :: time_bnds(2) ! time bounds output
     character(len=CL)       :: hist_file
-    integer                 :: m
+    integer                 :: m,n
     logical                 :: isPresent
     character(len=*), parameter :: subname='(med_phases_history_write_lnd2glc)'
     !---------------------------------------
@@ -623,9 +628,21 @@ contains
           call med_io_write_time(io_file, time_val, time_bnds, nt=1, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        end if
-       call med_io_write(io_file, fldbun, whead(m), wdata(m), is_local%wrap%nx(complnd), is_local%wrap%ny(complnd), &
+
+       call med_io_write(io_file, fldbun_lnd, whead(m), wdata(m), &
+            is_local%wrap%nx(complnd), is_local%wrap%ny(complnd), &
             nt=1, pre=trim(compname(complnd))//'Imp', rc=rc)
        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+       if (present(fldbun_glc)) then
+          do n = 1,size(fldbun_glc)
+             call med_io_write(io_file, fldbun_glc(n), whead(m), wdata(m), &
+                  is_local%wrap%nx(compglc(n)), is_local%wrap%ny(compglc(n)), &
+                  nt=1, pre=trim(compname(compglc(n)))//'Exp', rc=rc)
+             if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          end do
+       end if
+
     end do ! end of loop over m
 
     ! Close history file
@@ -1045,6 +1062,7 @@ contains
     logical                 :: enable_auxfile
     character(CL)           :: time_units        ! units of time variable
     integer                 :: nx,ny             ! global grid size
+    integer                 :: ntile             ! number of tiles for tiled domain eg CSG
     logical                 :: write_now         ! if true, write time sample to file
     real(r8)                :: time_val          ! time coordinate output
     real(r8)                :: time_bnds(2)      ! time bounds output
@@ -1251,6 +1269,7 @@ contains
           ! Set shorthand variables
           nx = is_local%wrap%nx(compid)
           ny = is_local%wrap%ny(compid)
+          ntile = is_local%wrap%ntile(compid)
 
           ! Increment number of time samples on file
           auxcomp%files(nf)%nt = auxcomp%files(nf)%nt + 1
@@ -1286,7 +1305,7 @@ contains
              call med_io_write(auxcomp%files(nf)%io_file, is_local%wrap%FBimp(compid,compid), &
                   whead(1), wdata(1), nx, ny, nt=auxcomp%files(nf)%nt, &
                   pre=trim(compname(compid))//'Imp', flds=auxcomp%files(nf)%flds, &
-                  use_float=.true., rc=rc)
+                  use_float=.true., ntile=ntile, rc=rc)
              if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
              ! end definition phase
@@ -1300,13 +1319,15 @@ contains
           ! Write data variables for time nt
           if (auxcomp%files(nf)%doavg) then
              call med_io_write(auxcomp%files(nf)%io_file, auxcomp%files(nf)%FBaccum, whead(2), wdata(2), nx, ny, &
-                  nt=auxcomp%files(nf)%nt, pre=trim(compname(compid))//'Imp', flds=auxcomp%files(nf)%flds, rc=rc)
+                  nt=auxcomp%files(nf)%nt, pre=trim(compname(compid))//'Imp', flds=auxcomp%files(nf)%flds, &
+                  use_float=.true., ntile=ntile, rc=rc)
              if (ChkErr(rc,__LINE__,u_FILE_u)) return
              call med_methods_FB_reset(auxcomp%files(nf)%FBaccum, value=czero, rc=rc)
              if (ChkErr(rc,__LINE__,u_FILE_u)) return
           else
              call med_io_write(auxcomp%files(nf)%io_file, is_local%wrap%FBimp(compid,compid), whead(2), wdata(2), nx, ny, &
-                  nt=auxcomp%files(nf)%nt, pre=trim(compname(compid))//'Imp', flds=auxcomp%files(nf)%flds, rc=rc)
+                  nt=auxcomp%files(nf)%nt, pre=trim(compname(compid))//'Imp', flds=auxcomp%files(nf)%flds, &
+                  use_float=.true., ntile=ntile, rc=rc)
              if (ChkErr(rc,__LINE__,u_FILE_u)) return
           end if
 
