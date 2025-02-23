@@ -99,6 +99,8 @@ contains
     real(r8), pointer   :: rofi(:), hrofi(:)
     real(r8), pointer   :: areas(:)
     real(r8), allocatable :: hcorr(:)
+    integer             :: lsize
+    real(r8), pointer   :: Foxx_taux(:), Foxx_tauy(:)
     type(med_fldlist_type), pointer :: fldList
     character(len=*), parameter    :: subname='(med_phases_prep_ocn_accum)'
     !---------------------------------------
@@ -152,6 +154,25 @@ contains
          fldList, &
          FBMed1=is_local%wrap%FBMed_aoflux_o, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    !---------------------------------------
+    !--- custom calculations for hafs
+    !---------------------------------------
+    ! Adjust Foxx_taux, Foxx_tauy
+    if (trim(coupling_mode) == 'hafs') then
+      if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_taux', rc=rc) .and. &
+          FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_tauy', rc=rc)) then
+         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_taux', Foxx_taux, rc=rc)
+         if (ChkErr(rc,__LINE__,u_FILE_u)) return
+         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_tauy', Foxx_tauy, rc=rc)
+         if (ChkErr(rc,__LINE__,u_FILE_u)) return
+      end if
+      lsize = size(Foxx_taux)
+      do n = 1,lsize
+         Foxx_taux(n)  = 0.8*Foxx_taux(n)
+         Foxx_tauy(n)  = 0.8*Foxx_tauy(n)
+      end do
+    end if
 
     !---------------------------------------
     !--- custom calculations
