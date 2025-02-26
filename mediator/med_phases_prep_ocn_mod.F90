@@ -156,10 +156,10 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !---------------------------------------
-    !--- custom calculations for hafs
+    !--- custom calculations for hafs.mom6
     !---------------------------------------
     ! Adjust Foxx_taux, Foxx_tauy
-    if (trim(coupling_mode) == 'hafs') then
+    if (trim(coupling_mode) == 'hafs.mom6') then
       if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_taux', rc=rc) .and. &
           FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_tauy', rc=rc)) then
          call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_taux', Foxx_taux, rc=rc)
