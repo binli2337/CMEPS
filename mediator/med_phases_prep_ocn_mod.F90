@@ -79,6 +79,7 @@ contains
     use ESMF                    , only : ESMF_GridComp, ESMF_FieldBundleGet
     use ESMF                    , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
     use ESMF                    , only : ESMF_FAILURE,  ESMF_LOGMSG_ERROR
+    use ESMF                    , only : ESMF_KIND_R8
     use med_constants_mod       , only : shr_const_cpsw, shr_const_tkfrz, shr_const_pi
     use med_phases_prep_atm_mod , only : med_phases_prep_atm_enthalpy_correction
 
@@ -99,8 +100,8 @@ contains
     real(r8), pointer   :: rofi(:), hrofi(:)
     real(r8), pointer   :: areas(:)
     real(r8), allocatable :: hcorr(:)
-    integer             :: lsize
     real(r8), pointer   :: Foxx_taux(:), Foxx_tauy(:)
+    real(r8), pointer   :: Faxa_taux(:), Faxa_tauy(:)
     type(med_fldlist_type), pointer :: fldList
     character(len=*), parameter    :: subname='(med_phases_prep_ocn_accum)'
     !---------------------------------------
@@ -156,23 +157,31 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     !---------------------------------------
-    !--- custom calculations for hafs.mom6
+    !--- custom calculations for hafs
     !---------------------------------------
-    ! Adjust Foxx_taux, Foxx_tauy
-    if (trim(coupling_mode) == 'hafs.mom6') then
-      if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_taux', rc=rc) .and. &
-          FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_tauy', rc=rc)) then
-         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_taux', Foxx_taux, rc=rc)
-         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_tauy', Foxx_tauy, rc=rc)
-         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-      end if
-      lsize = size(Foxx_taux)
-      do n = 1,lsize
-         Foxx_taux(n)  = 0.8*Foxx_taux(n)
-         Foxx_tauy(n)  = 0.8*Foxx_tauy(n)
-      end do
+    if (trim(coupling_mode) == 'hafs') then
+       call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Faxa_taux' , Faxa_taux, rc=rc)
+       call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Faxa_tauy' , Faxa_tauy, rc=rc)
+       do n = 1,size(Faxa_tauy)
+         if (abs(Faxa_taux(n)-9.99e20_ESMF_KIND_R8).gt.0.1) then
+           Faxa_taux(n)=0.75*Faxa_taux(n)
+           Faxa_tauy(n)=0.75*Faxa_tauy(n)
+         end if
+       enddo
     end if
+!    if (trim(coupling_mode) == 'hafs.mom6') then
+!      if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_taux', rc=rc) .and. &
+!          FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_tauy', rc=rc)) then
+!         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_taux', Foxx_taux, rc=rc)
+!         if (ChkErr(rc,__LINE__,u_FILE_u)) return
+!         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_tauy', Foxx_tauy, rc=rc)
+!         if (ChkErr(rc,__LINE__,u_FILE_u)) return
+!      end if
+!      do n = 1,size(Foxx_taux)
+!         Foxx_taux(n)  = Foxx_taux(n)
+!         Foxx_tauy(n)  = Foxx_tauy(n)
+!      end do
+!    end if
 
     !---------------------------------------
     !--- custom calculations
