@@ -76,6 +76,7 @@ contains
   !-----------------------------------------------------------------------------
   subroutine med_phases_prep_ocn_accum(gcomp, rc)
 
+    use NUOPC                   , only : NUOPC_CompAttributeGet
     use ESMF                    , only : ESMF_GridComp, ESMF_FieldBundleGet
     use ESMF                    , only : ESMF_LogWrite, ESMF_LOGMSG_INFO, ESMF_SUCCESS
     use ESMF                    , only : ESMF_FAILURE,  ESMF_LOGMSG_ERROR
@@ -102,6 +103,10 @@ contains
     real(r8), allocatable :: hcorr(:)
     real(r8), pointer   :: Foxx_taux(:), Foxx_tauy(:)
     real(r8), pointer   :: Faxa_taux(:), Faxa_tauy(:)
+    real(r8)            :: factor_tau_hycom
+    real(r8)            :: factor_tau_mom6
+    character(CL)       :: cvalue
+    logical             :: isPresent
     type(med_fldlist_type), pointer :: fldList
     character(len=*), parameter    :: subname='(med_phases_prep_ocn_accum)'
     !---------------------------------------
@@ -156,32 +161,61 @@ contains
          FBMed1=is_local%wrap%FBMed_aoflux_o, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
-    !---------------------------------------
+    !----------------------------------------------------------
     !--- custom calculations for hafs
-    !---------------------------------------
-    if (trim(coupling_mode) == 'hafs') then
-       call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Faxa_taux' , Faxa_taux, rc=rc)
-       call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Faxa_tauy' , Faxa_tauy, rc=rc)
+    !----------------------------------------------------------
+    !    Scaling factor for wind stress
+    !----------------------------------------------------------
+
+    call NUOPC_CompAttributeGet(gcomp, name='factor_tau_hycom', &
+         isPresent=isPresent, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+      call NUOPC_CompAttributeGet(gcomp, name='factor_tau_hycom', value=cvalue, rc=rc)
+      read(cvalue,*) factor_tau_hycom
+    else
+      factor_tau_hycom=1.0
+    end if
+
+    call NUOPC_CompAttributeGet(gcomp, name='factor_tau_mom6', &
+         isPresent=isPresent, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+    if (isPresent) then
+      call NUOPC_CompAttributeGet(gcomp, name='factor_tau_mom6', value=cvalue, rc=rc)
+      read(cvalue,*) factor_tau_mom6
+    else
+      factor_tau_mom6=1.0
+    end if
+
+    !----------------------------------------------------------
+    if (trim(coupling_mode) == 'hafs' .and. abs(factor_tau_hycom-1.0) > 0.01) then
+      if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Faxa_taux', rc=rc) .and. &
+          FB_fldchk(is_local%wrap%FBExp(compocn), 'Faxa_tauy', rc=rc)) then
+        call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Faxa_taux' , Faxa_taux, rc=rc)
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+        call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Faxa_tauy' , Faxa_tauy, rc=rc)
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+      end if
        do n = 1,size(Faxa_tauy)
          if (abs(Faxa_taux(n)-9.99e20_ESMF_KIND_R8).gt.0.1) then
-           Faxa_taux(n)=0.75*Faxa_taux(n)
-           Faxa_tauy(n)=0.75*Faxa_tauy(n)
+           Faxa_taux(n)=factor_tau_hycom*Faxa_taux(n)
+           Faxa_tauy(n)=factor_tau_hycom*Faxa_tauy(n)
          end if
        enddo
     end if
-!    if (trim(coupling_mode) == 'hafs.mom6') then
-!      if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_taux', rc=rc) .and. &
-!          FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_tauy', rc=rc)) then
-!         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_taux', Foxx_taux, rc=rc)
-!         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-!         call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_tauy', Foxx_tauy, rc=rc)
-!         if (ChkErr(rc,__LINE__,u_FILE_u)) return
-!      end if
-!      do n = 1,size(Foxx_taux)
-!         Foxx_taux(n)  = Foxx_taux(n)
-!         Foxx_tauy(n)  = Foxx_tauy(n)
-!      end do
-!    end if
+    if (trim(coupling_mode) == 'hafs.mom6' .and. abs(factor_tau_mom6-1.0) > 0.01) then
+      if (FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_taux', rc=rc) .and. &
+          FB_fldchk(is_local%wrap%FBExp(compocn), 'Foxx_tauy', rc=rc)) then
+        call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_taux', Foxx_taux, rc=rc)
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+        call FB_GetFldPtr(is_local%wrap%FBExp(compocn), 'Foxx_tauy', Foxx_tauy, rc=rc)
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
+      end if
+      do n = 1,size(Foxx_taux)
+         Foxx_taux(n)  = factor_tau_mom6*Foxx_taux(n)
+         Foxx_tauy(n)  = factor_tau_mom6*Foxx_tauy(n)
+      end do
+    end if
 
     !---------------------------------------
     !--- custom calculations
